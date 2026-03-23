@@ -652,11 +652,11 @@ function BillReviewTab() {
           })}
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="small">
             <Upload size={13} style={{ marginRight: 4 }} />
             Upload bill
           </Button>
-          <Button variant="outline" size="sm">
+          <Button variant="outline" size="small">
             <Download size={13} style={{ marginRight: 4 }} />
             Export disputes
           </Button>
@@ -756,10 +756,10 @@ function BillReviewTab() {
 
                 {/* Actions */}
                 <div style={{ padding: '0 20px 16px', display: 'flex', gap: 8 }}>
-                  <Button size="sm">Raise dispute</Button>
-                  <Button variant="outline" size="sm">Request credit</Button>
-                  <Button variant="outline" size="sm">Mark approved</Button>
-                  <Button variant="outline" size="sm">
+                  <Button size="small">Raise dispute</Button>
+                  <Button variant="outline" size="small">Request credit</Button>
+                  <Button variant="outline" size="small">Mark approved</Button>
+                  <Button variant="outline" size="small">
                     <MessageSquare size={13} style={{ marginRight: 4 }} />
                     Ask Harvey
                   </Button>
@@ -912,11 +912,11 @@ function GuidelinesTab() {
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8, marginTop: 12 }}>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="small">
               <Download size={13} style={{ marginRight: 4 }} />
               Download guidelines
             </Button>
-            <Button variant="outline" size="sm">
+            <Button variant="outline" size="small">
               <PlusCircle size={13} style={{ marginRight: 4 }} />
               Add rule
             </Button>
@@ -1037,17 +1037,17 @@ function OptimizeTab() {
 
                 <div style={{ display: 'flex', gap: 8 }}>
                   {opp.workflowAvailable ? (
-                    <Button size="sm">
+                    <Button size="small">
                       <Zap size={13} style={{ marginRight: 4 }} />
                       Open {opp.workflowName}
                     </Button>
                   ) : (
-                    <Button size="sm" variant="outline">
+                    <Button size="small" variant="outline">
                       <PlusCircle size={13} style={{ marginRight: 4 }} />
                       Request workflow
                     </Button>
                   )}
-                  <Button variant="outline" size="sm">
+                  <Button variant="outline" size="small">
                     <BarChart3 size={13} style={{ marginRight: 4 }} />
                     See billing history
                   </Button>
@@ -1105,11 +1105,11 @@ function OptimizeTab() {
                 </div>
 
                 <div style={{ display: 'flex', gap: 8 }}>
-                  <Button size="sm">
+                  <Button size="small">
                     <Lightbulb size={13} style={{ marginRight: 4 }} />
                     Pilot this workflow
                   </Button>
-                  <Button variant="outline" size="sm">Share with {firm.shortName}</Button>
+                  <Button variant="outline" size="small">Share with {firm.shortName}</Button>
                 </div>
               </Card>
             )
@@ -1152,11 +1152,11 @@ export function PanelManagementPage() {
                 </p>
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
-                <Button variant="outline" size="sm">
+                <Button variant="outline" size="small">
                   <Upload size={13} style={{ marginRight: 4 }} />
                   Sync bills
                 </Button>
-                <Button size="sm">
+                <Button size="small">
                   <Sparkles size={13} style={{ marginRight: 4 }} />
                   Run AI analysis
                 </Button>

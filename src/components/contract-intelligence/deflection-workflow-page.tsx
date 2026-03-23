@@ -312,7 +312,7 @@ export function DeflectionWorkflowPage() {
               <h1 style={{ fontSize: 22, fontWeight: 700, color: hy.fg.base, margin: '0 0 6px' }}>{"Redesigned for Deflection"}</h1>
               <p style={{ fontSize: 13, color: hy.fg.muted, margin: 0 }}>{"Every contract submission classified: fully automated or legal review needed. Harvey handles what doesn't need a lawyer."}</p>
             </div>
-            <Button variant="outline" size="sm" onClick={() => router.push('/meta-contract-intelligence/trends')}>
+            <Button variant="outline" size="small" onClick={() => router.push('/meta-contract-intelligence/trends')}>
               {"Command Center →"}
             </Button>
           </div>

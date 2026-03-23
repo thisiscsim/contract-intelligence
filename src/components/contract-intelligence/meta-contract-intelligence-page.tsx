@@ -658,9 +658,9 @@ function TrendsView({ onTabChange, isAskHarveyOpen, setIsAskHarveyOpen }: {
 
       {/* Quick actions + connected systems */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
-        <Button size="sm"><Plus size={13} /> {"Create contract"}</Button>
-        <Button size="sm" variant="outline"><Upload size={13} /> {"Upload for review"}</Button>
-        <Button size="sm" variant="outline"><FileText size={13} /> {"Use a template"}</Button>
+        <Button size="small"><Plus size={13} /> {"Create contract"}</Button>
+        <Button size="small" variant="outline"><Upload size={13} /> {"Upload for review"}</Button>
+        <Button size="small" variant="outline"><FileText size={13} /> {"Use a template"}</Button>
         <div style={{ flex: 1 }} />
         {/* Connected systems — animated sync badge with hover tooltip */}
         <div className="group relative">
@@ -937,8 +937,8 @@ function TrendsView({ onTabChange, isAskHarveyOpen, setIsAskHarveyOpen }: {
               </div>
             </div>
             <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
-              <Button size="sm"><CheckSquare size={12} /> {"Approve & send back"}</Button>
-              <Button size="sm" variant="outline">{"Redline with Harvey"}</Button>
+              <Button size="small"><CheckSquare size={12} /> {"Approve & send back"}</Button>
+              <Button size="small" variant="outline">{"Redline with Harvey"}</Button>
               <button type="button" onClick={() => setReviewingId(null)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 28, height: 28, borderRadius: hy.radius.sm, background: 'none', border: `1px solid ${hy.border.base}`, cursor: 'pointer' }}>
                 <X size={13} color={hy.fg.muted} />
               </button>
@@ -1021,7 +1021,7 @@ function TrendsView({ onTabChange, isAskHarveyOpen, setIsAskHarveyOpen }: {
                               <span style={{ fontSize: 11, color: hy.ui.blue.fg, lineHeight: 1.4 }}>{issue.recommendation}</span>
                             </div>
                           </div>
-                          <Button size="sm" className="w-full justify-center">
+                          <Button size="small" className="w-full justify-center">
                             <CheckSquare size={11} /> {"Apply suggestion"}
                           </Button>
                         </div>
@@ -1144,8 +1144,8 @@ function PlaybooksView() {
                         <div style={{ fontSize: 11, color: hy.ui.blue.fg, lineHeight: 1.5 }}>{rule.recommendedPosition}</div>
                       </div>
                       <div style={{ display: 'flex', gap: 8 }}>
-                        <Button size="sm">{"Update rule"}</Button>
-                        <Button size="sm" variant="outline">{"See affected contracts"}</Button>
+                        <Button size="small">{"Update rule"}</Button>
+                        <Button size="small" variant="outline">{"See affected contracts"}</Button>
                       </div>
                     </div>
                   )
@@ -1393,9 +1393,9 @@ function EscalationsView() {
                   <div style={{ padding: '12px 14px', background: hy.bg.base }}>
                     <div style={{ fontSize: 10, fontWeight: 600, color: hy.fg.muted, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 10 }}>{"Your decision"}</div>
                     <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' as const }}>
-                      <Button size="sm"><CheckSquare size={11} /> {"Approve & send back"}</Button>
-                      <Button size="sm" variant="outline">{"Redline with Harvey"}</Button>
-                      <Button size="sm" variant="outline" style={{ color: hy.ui.warning.fg }}><Send size={11} /> {"Send back to"} {esc.submittedBy}</Button>
+                      <Button size="small"><CheckSquare size={11} /> {"Approve & send back"}</Button>
+                      <Button size="small" variant="outline">{"Redline with Harvey"}</Button>
+                      <Button size="small" variant="outline" style={{ color: hy.ui.warning.fg }}><Send size={11} /> {"Send back to"} {esc.submittedBy}</Button>
                     </div>
                   </div>
                 </div>

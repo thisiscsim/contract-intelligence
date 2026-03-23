@@ -61,7 +61,7 @@ import type {
   PlaybookRule,
   PlaybookRuleStatus,
   TemplateRow,
-} from './contract-intelligence/mock-data'
+} from './mock-data'
 import {
   atRiskContracts,
   clauseLibrary,
@@ -72,7 +72,7 @@ import {
   teamEffectivenessMetrics,
   teamMembers,
   templates,
-} from './contract-intelligence/mock-data'
+} from './mock-data'
 
 /*
  * Harvey design tokens — aligned with src/tokens/css/tokens.light.css
@@ -98,12 +98,22 @@ const hy = {
     strong: 'var(--border-strong)',
   },
   ui: {
-    success: { fg: 'var(--ui-success-fg)', bg: 'var(--ui-success-bg)' },
-    warning: { fg: 'var(--ui-warning-fg)', bg: 'var(--ui-warning-bg)' },
+    success: {
+      fg: 'var(--ui-success-fg)',
+      bg: 'var(--ui-success-bg)',
+      border: 'var(--ui-success-border)',
+    },
+    warning: {
+      fg: 'var(--ui-warning-fg)',
+      bg: 'var(--ui-warning-bg)',
+      border: 'var(--ui-warning-border)',
+    },
     danger:  { fg: 'var(--ui-danger-fg)',  bg: 'var(--ui-danger-bg)' },
     neutral: { fg: 'var(--fg-muted)', bg: 'var(--bg-subtle)' },
     blue:    { fg: 'var(--ui-blue-fg)',    bg: 'var(--ui-blue-bg)' },
     gold:    { fg: 'var(--ui-warning-fg)', bg: 'var(--ui-warning-bg)' },
+    olive:   { fg: 'hsl(85, 25%, 32%)', bg: 'hsl(85, 35%, 92%)' },
+    violet:  { fg: 'var(--ui-violet-fg)', bg: 'var(--ui-violet-bg)' },
   },
   radius: { xs: 4, sm: 6, md: 8, lg: 12, xl: 16 },
 }
@@ -3938,7 +3948,7 @@ function OverviewTab({ onTabChange }: { onTabChange: (tab: ActiveTab) => void })
                       ))}
                     </Pie>
                     <Tooltip
-                      formatter={(value: number, name: string) => [`${value} contracts`, name]}
+                      formatter={((value: number, name: string) => [`${value} contracts`, name]) as any}
                       contentStyle={{
                         fontSize: 12,
                         borderRadius: hy.radius.sm,
@@ -4160,7 +4170,7 @@ function PlaybookGapCard({ gap, isExpanded, onToggle }: { gap: PlaybookGap; isEx
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: hy.fg.muted, textTransform: 'uppercase' as const, letterSpacing: '0.05em', marginBottom: 6 }}>{"Frequently seen counterparties"}</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' as const }}>
-                {gap.affectedCounterparties.map((cp) => (
+                {gap.affectedCounterparties.map((cp: string) => (
                   <Chip key={cp} label={cp} fg={hy.fg.subtle} bg={hy.bg.component} />
                 ))}
               </div>
@@ -4648,7 +4658,7 @@ function ClausesTab({ clauses }: { clauses: ClauseRow[] }) {
                   </div>
                   {/* Impact tags */}
                   <div style={{ display: 'flex', gap: 6, marginTop: 10 }}>
-                    {clause.riskAssessment.impacts.map((imp) => (
+                    {clause.riskAssessment.impacts.map((imp: string) => (
                       <Chip key={imp} label={imp} fg={hy.fg.muted} bg={hy.bg.component} />
                     ))}
                   </div>
@@ -5141,7 +5151,7 @@ function AtRiskTab({ contracts: riskContracts }: { contracts: AtRiskContract[] }
                   gap: 3,
                 }}
               >
-                {c.issues.map((issue) => (
+                {c.issues.map((issue: string) => (
                   <li
                     key={issue}
                     style={{ fontSize: 12, color: hy.fg.subtle }}
@@ -5266,7 +5276,7 @@ function TeamTab() {
           ]}
         />
         <tbody>
-          {teamMembers.map((member, i) => (
+          {teamMembers.map((member: { name: string; reviews: number; acceptanceRate: number; avgTimeMinutes: number }, i: number) => (
             <TableRow key={member.name} isLast={i === teamMembers.length - 1}>
               <Td>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
@@ -5287,7 +5297,7 @@ function TeamTab() {
                   >
                     {member.name
                       .split(' ')
-                      .map((n) => n[0])
+                      .map((n: string) => n[0])
                       .join('')}
                   </div>
                   <span style={{ fontWeight: 500 }}>{member.name}</span>
