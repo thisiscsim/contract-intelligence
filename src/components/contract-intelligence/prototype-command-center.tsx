@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState } from 'react'
+import React from 'react'
 import { useRouter } from 'next/navigation'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import {
@@ -29,12 +29,13 @@ import {
   ShieldAlert,
   TrendingDown,
   TrendingUp,
+  Activity,
+  Clock,
+  FolderOpen,
+  Mail,
   Zap,
 } from 'lucide-react'
 
-/*
- * Harvey design tokens
- */
 const hy = {
   bg: {
     base: 'var(--bg-base)',
@@ -56,14 +57,17 @@ const hy = {
     strong: 'var(--border-strong)',
   },
   ui: {
-    success: { fg: 'var(--ui-success-fg)', bg: 'var(--ui-success-bg)' },
-    warning: { fg: 'var(--ui-warning-fg)', bg: 'var(--ui-warning-bg)' },
+    success: { fg: 'var(--ui-success-fg)', bg: 'var(--ui-success-bg)', border: 'var(--ui-success-border)' },
+    warning: { fg: 'var(--ui-warning-fg)', bg: 'var(--ui-warning-bg)', border: 'var(--ui-warning-border)' },
     danger:  { fg: 'var(--ui-danger-fg)',  bg: 'var(--ui-danger-bg)' },
     neutral: { fg: 'var(--fg-muted)', bg: 'var(--bg-subtle)' },
     blue:    { fg: 'var(--ui-blue-fg)',    bg: 'var(--ui-blue-bg)' },
     gold:    { fg: 'var(--ui-warning-fg)', bg: 'var(--ui-warning-bg)' },
+    olive:   { fg: 'hsl(85, 25%, 32%)', bg: 'hsl(85, 35%, 92%)' },
+    violet:  { fg: 'var(--ui-violet-fg)', bg: 'var(--ui-violet-bg)' },
+    jade:    { fg: 'hsl(185, 58%, 28%)', bg: 'hsl(180, 8%, 88%)' },
   },
-  radius: { xs: 4, sm: 6, md: 8, lg: 12, xl: 16 },
+  radius: { xs: 4, sm: 6, md: 8, lg: 12, xl: 16, full: 9999 },
 }
 
 const serif =
@@ -92,10 +96,10 @@ function Tag({
         fontSize: 11,
         fontWeight: 500,
         padding: '2px 8px',
-        borderRadius: 9999,
+        borderRadius: hy.radius.full,
         background: p.bg,
         color: p.fg,
-        border: `1px solid ${p.fg}`,
+        border: 'border' in p ? `1px solid ${(p as any).border}` : undefined,
         whiteSpace: 'nowrap',
       }}
     >
@@ -182,15 +186,24 @@ const clauseTrends = [
 ]
 
 const clauseNegotiationData = clauseTrends.map(c => ({
-  clause: c.clause.length > 18 ? c.clause.slice(0, 18) + '\u2026' : c.clause,
+  clause: c.clause.length > 18 ? c.clause.slice(0, 18) + '…' : c.clause,
   Accepted: c.accepted,
   Contested: c.contested,
   Rejected: c.rejected,
 }))
 
+const AGENT_RUNS = [
+  { id: 1, agent: 'Contract Review', target: 'Bilateral NDA — Crest Ventures', trigger: 'ask@harvey.ai', status: 'completed', result: '4 redlines · Low risk', started: 'Mar 19, 9:32 AM', finished: 'Mar 19, 9:34 AM', durationMin: 2 },
+  { id: 2, agent: 'Contract Review', target: 'SaaS Subscription Renewal — Altair', trigger: 'Synced folder', status: 'completed', result: '6 redlines · Medium risk', started: 'Mar 19, 9:40 AM', finished: 'Mar 19, 9:42 AM', durationMin: 2 },
+  { id: 3, agent: 'Contract Review', target: 'Data Processing Addendum — Meridian', trigger: 'ask@harvey.ai', status: 'running', result: 'Reviewing…', started: 'Mar 19, 9:53 AM', finished: '—', durationMin: null },
+  { id: 4, agent: 'Playbook Maintenance', target: 'All playbooks (4)', trigger: 'Monthly cron', status: 'completed', result: '3 rules flagged', started: 'Mar 1, 6:00 AM', finished: 'Mar 1, 6:18 AM', durationMin: 18 },
+  { id: 5, agent: 'Clause Library Maintenance', target: 'Org-wide (8 clause types)', trigger: 'Monthly cron', status: 'completed', result: '4 new variants', started: 'Mar 1, 6:05 AM', finished: 'Mar 1, 6:18 AM', durationMin: 13 },
+  { id: 6, agent: 'Playbook Creation', target: 'PE NDA Playbook', trigger: 'Manual', status: 'completed', result: '20% → 93% (5 iter)', started: 'Mar 18, 2:14 PM', finished: 'Mar 18, 2:42 PM', durationMin: 28 },
+]
+
 // ── Component ────────────────────────────────────────────────────────────────
 
-export function ContractIntelligenceCommandCenter() {
+export function PrototypeCommandCenter() {
   const router = useRouter()
 
   return (
@@ -213,7 +226,7 @@ export function ContractIntelligenceCommandCenter() {
             </div>
           </div>
 
-          <div style={{ padding: '0 40px 32px', maxWidth: 1320 }}>
+          <div style={{ padding: '0 40px 32px' }}>
 
             {/* ── Row 1: Pipeline hero cards ── */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
@@ -224,7 +237,7 @@ export function ContractIntelligenceCommandCenter() {
                 style={{
                   padding: '16px 20px',
                   borderRadius: hy.radius.lg,
-                  border: `1px solid ${hy.border.base}`,
+                  border: `1px solid ${hy.ui.success.border}`,
                   background: hy.ui.success.bg,
                   cursor: 'pointer',
                   textAlign: 'left',
@@ -248,7 +261,7 @@ export function ContractIntelligenceCommandCenter() {
                 style={{
                   padding: '16px 20px',
                   borderRadius: hy.radius.lg,
-                  border: `1px solid ${hy.border.base}`,
+                  border: `1px solid ${hy.ui.warning.border}`,
                   background: hy.ui.warning.bg,
                   cursor: 'pointer',
                   textAlign: 'left',
@@ -264,6 +277,42 @@ export function ContractIntelligenceCommandCenter() {
                   <span style={{ fontSize: 12, color: hy.fg.subtle }}>First pass ready · 12 submitted today</span>
                 </div>
               </button>
+            </div>
+
+            {/* Event Sources */}
+            <div style={{ marginTop: 16, marginBottom: 16, border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, padding: 14, background: hy.bg.base }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                <span style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base }}>Event Sources</span>
+                <span style={{ fontSize: 11, color: hy.ui.success.fg, fontWeight: 500 }}>&middot; 3 channels connected</span>
+              </div>
+              <div style={{ display: 'flex', gap: 10 }}>
+                {/* Email channel */}
+                <div style={{ flex: 1, padding: '10px 12px', borderRadius: hy.radius.sm, background: hy.bg.subtle, border: `1px solid ${hy.border.base}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <Mail size={12} color={hy.fg.subtle} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: hy.fg.base }}>ask@harvey.ai</span>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: hy.ui.success.fg, flexShrink: 0 }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: hy.fg.muted }}>Email Channel &middot; 12 today</span>
+                </div>
+                {/* Synced Folders channel */}
+                <div style={{ flex: 1, padding: '10px 12px', borderRadius: hy.radius.sm, background: hy.bg.subtle, border: `1px solid ${hy.border.base}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <FolderOpen size={12} color={hy.fg.subtle} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: hy.fg.base }}>Synced Folders</span>
+                    <span style={{ width: 6, height: 6, borderRadius: '50%', background: hy.ui.success.fg, flexShrink: 0 }} />
+                  </div>
+                  <span style={{ fontSize: 11, color: hy.fg.muted }}>File System Channel &middot; 4 today</span>
+                </div>
+                {/* Scheduled channel */}
+                <div style={{ flex: 1, padding: '10px 12px', borderRadius: hy.radius.sm, background: hy.bg.subtle, border: `1px solid ${hy.border.base}` }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                    <Clock size={12} color={hy.fg.subtle} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: hy.fg.base }}>Monthly Cron</span>
+                  </div>
+                  <span style={{ fontSize: 11, color: hy.fg.muted }}>Scheduled &middot; 2 agents &middot; next: Apr 1</span>
+                </div>
+              </div>
             </div>
 
             {/* ── Row 2: 2 KPI boxes + weekly chart, all in one row ── */}
@@ -334,7 +383,7 @@ export function ContractIntelligenceCommandCenter() {
                         style={{
                           padding: '12px 14px',
                           borderRadius: hy.radius.md,
-                          border: `1px solid ${hy.border.base}`,
+                          border: 'border' in p ? `1px solid ${(p as any).border}` : `1px solid ${hy.border.base}`,
                           background: hy.bg.base,
                         }}
                       >
@@ -433,6 +482,63 @@ export function ContractIntelligenceCommandCenter() {
                     )
                   })}
                 </div>
+              </div>
+            </div>
+
+            {/* ── Row 4: Recent Agent Runs ── */}
+            <div style={{ marginTop: 24 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                <Activity size={15} color={hy.fg.subtle} strokeWidth={1.8} />
+                <span style={{ fontSize: 15, fontWeight: 500 }}>Recent Agent Runs</span>
+              </div>
+              <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.md, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ background: hy.bg.component, borderBottom: `1px solid ${hy.border.base}` }}>
+                      {['Agent', 'Target', 'Trigger', 'Status', 'Result', 'Started', 'Finished', 'Duration'].map((col) => (
+                        <th
+                          key={col}
+                          style={{
+                            padding: '8px 12px',
+                            textAlign: 'left',
+                            fontSize: 11,
+                            fontWeight: 500,
+                            color: hy.fg.muted,
+                            borderBottom: `1px solid ${hy.border.base}`,
+                          }}
+                        >
+                          {col}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {AGENT_RUNS.map((run, i) => (
+                      <tr
+                        key={run.id}
+                        style={{
+                          borderBottom: i < AGENT_RUNS.length - 1 ? `1px solid ${hy.border.base}` : 'none',
+                          transition: 'background 0.1s',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = hy.bg.baseHover }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent' }}
+                      >
+                        <td style={{ padding: '7px 12px', fontSize: 12, fontWeight: 500 }}>{run.agent}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 12, color: hy.fg.subtle, maxWidth: 240, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{run.target}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 12, color: hy.fg.muted }}>{run.trigger}</td>
+                        <td style={{ padding: '7px 12px' }}>
+                          <Tag variant={run.status === 'completed' ? 'success' : 'blue'}>
+                            {run.status === 'completed' ? 'Completed' : 'Running'}
+                          </Tag>
+                        </td>
+                        <td style={{ padding: '7px 12px', fontSize: 12, fontWeight: 500, color: run.status === 'completed' ? hy.ui.success.fg : hy.ui.blue.fg }}>{run.result}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 12, color: hy.fg.subtle, whiteSpace: 'nowrap' }}>{run.started}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 12, color: hy.fg.subtle, whiteSpace: 'nowrap' }}>{run.finished}</td>
+                        <td style={{ padding: '7px 12px', fontSize: 12, fontWeight: 500, color: hy.fg.base, whiteSpace: 'nowrap' }}>{run.durationMin != null ? `${run.durationMin} min` : '—'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             </div>
 

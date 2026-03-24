@@ -1,7 +1,8 @@
 "use client"
 
-import React, { useCallback, useState } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { motion, AnimatePresence } from 'motion/react'
 
 import {
   AlertTriangle,
@@ -12,7 +13,10 @@ import {
   ChevronDown,
   ChevronRight,
   Clock,
+  Copy,
+  CornerDownLeft,
   Database,
+  Download,
   FileText,
   Filter,
   FolderTree,
@@ -20,21 +24,34 @@ import {
   HelpCircle,
   Library,
   Link2,
+  ListPlus,
   Mail,
   MessageSquare,
+  Mic,
+  Paperclip,
   Plus,
   RefreshCw,
+  RotateCcw,
+  Scale,
   Search,
   Send,
   Share2,
   Shield,
+  SquarePen,
   Target,
+  ThumbsDown,
+  ThumbsUp,
   TrendingUp,
   Upload,
   Users,
   X,
   Zap,
   Briefcase,
+  Loader,
+  Bot,
+  Edit3,
+  Play,
+  ChevronLeft,
 } from 'lucide-react'
 import {
   Bar,
@@ -49,6 +66,18 @@ import {
 } from 'recharts'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { Button } from '@/components/ui/button'
+import { SvgIcon } from '@/components/svg-icon'
+import { Spinner } from '@/components/ui/spinner'
+import ThinkingState from '@/components/thinking-state'
+import { TextLoop } from '../../../components/motion-primitives/text-loop'
+import { AnimatedBackground } from '../../../components/motion-primitives/animated-background'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 
 import type {
@@ -73,6 +102,44 @@ import {
   teamMembers,
   templates,
 } from './mock-data'
+
+/* ── Chat types ─────────────────────────────────────────────────────────── */
+type Message = {
+  role: 'user' | 'assistant'
+  content: string
+  type?: 'text' | 'artifact' | 'files'
+  isLoading?: boolean
+  thinkingContent?: { summary: string; bullets: string[] }
+  loadingState?: { showSummary: boolean; visibleBullets: number }
+  showThinking?: boolean
+}
+
+interface ChatThread {
+  id: string
+  title: string
+  messages: Message[]
+  isLoading: boolean
+}
+
+function getThinkingContent(variant: 'analysis' | 'draft' | 'review') {
+  switch (variant) {
+    case 'draft':
+      return {
+        summary: 'Planning structure and content before drafting the document.',
+        bullets: ['Identify audience and objective', 'Assemble relevant facts and authorities', 'Outline sections and key arguments']
+      }
+    case 'review':
+      return {
+        summary: 'Parsing materials and selecting fields for a concise comparison.',
+        bullets: ['Locate documents and parse key terms', 'Normalize entities and dates', 'Populate rows and verify data consistency']
+      }
+    default:
+      return {
+        summary: 'Analyzing the request and gathering relevant information.',
+        bullets: ['Understanding the context and requirements', 'Searching through contract documents', 'Preparing comprehensive response']
+      }
+  }
+}
 
 /*
  * Harvey design tokens — aligned with src/tokens/css/tokens.light.css
@@ -1380,31 +1447,29 @@ function ContractLibraryView() {
       </div>
 
       {/* Sub-view tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${hy.border.base}` }}>
-        {([
-          { key: 'overview', label: "Classification Overview", icon: <Database size={13} /> },
-          { key: 'families', label: "Contract Families", icon: <FolderTree size={13} />, count: `${contractFamilies.length} families · ${contractFamilies.reduce((s, f) => s + f.children.length, 0)} children` },
-          { key: 'review-queue', label: "Review Queue", icon: <HelpCircle size={13} />, count: flaggedCount, warn: true },
-        ] as { key: LibrarySubView; label: string; icon: React.ReactNode; count?: number | string; warn?: boolean }[]).map(({ key, label, icon, count, warn }) => {
-          const isActive = subView === key
-          return (
+      <div className="flex items-center gap-1 mb-1">
+        <AnimatedBackground
+          defaultValue={subView}
+          onValueChange={(value) => value && setSubView(value as LibrarySubView)}
+          className="bg-bg-subtle rounded-md"
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        >
+          {([
+            { key: 'overview', label: 'Classification Overview' },
+            { key: 'families', label: 'Contract Families' },
+            { key: 'review-queue', label: 'Review Queue', count: flaggedCount },
+          ] as { key: LibrarySubView; label: string; count?: number }[]).map(({ key, label, count }) => (
             <button
               key={key}
-              type="button"
-              onClick={() => setSubView(key)}
-              className="focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-              style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '10px 18px', fontSize: 13, fontWeight: isActive ? 600 : 400, color: isActive ? hy.fg.base : hy.fg.subtle, background: 'transparent', border: 'none', borderBottom: isActive ? `2px solid ${hy.fg.base}` : '2px solid transparent', cursor: 'pointer', marginBottom: -1 }}
+              data-id={key}
+              className="relative px-2 py-1.5 font-medium transition-colors text-fg-subtle hover:text-fg-base data-[checked=true]:text-fg-base"
+              style={{ fontSize: '14px', lineHeight: '20px' }}
             >
-              {icon}
               {label}
-              {count !== undefined && (
-                <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: warn ? hy.ui.warning.bg : isActive ? hy.bg.component : hy.bg.subtle, color: warn ? hy.ui.warning.fg : isActive ? hy.fg.base : hy.fg.muted }}>
-                  {count}
-                </span>
-              )}
+              {count !== undefined && <span className="ml-1.5 text-xs font-semibold text-fg-muted">{count}</span>}
             </button>
-          )
-        })}
+          ))}
+        </AnimatedBackground>
       </div>
 
       {/* Classification Overview */}
@@ -3500,42 +3565,16 @@ function OverviewTab({ onTabChange }: { onTabChange: (tab: ActiveTab) => void })
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
 
       {/* Sub-tab switcher */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${hy.border.base}` }}>
-        {([['overview', "Overview"], ['agents', "Harvey Agents"]] as const).map(([key, label]) => {
-          const isActive = ccView === key
-          const attentionCount = key === 'agents' ? agentLog.filter((e) => e.status === 'attention').length : 0
-          return (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setCcView(key)}
-              className="focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '8px 16px',
-                fontSize: 13,
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? hy.fg.base : hy.fg.muted,
-                background: 'none',
-                border: 'none',
-                borderBottom: isActive ? `2px solid ${hy.fg.base}` : '2px solid transparent',
-                marginBottom: -1,
-                cursor: 'pointer',
-                transition: 'color 0.15s',
-              }}
-            >
-              {key === 'agents' && <Zap size={13} color={isActive ? hy.fg.base : hy.fg.muted} />}
-              {label}
-              {attentionCount > 0 && (
-                <div style={{ minWidth: 16, height: 16, borderRadius: 999, background: hy.ui.warning.fg, color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0 4px' }}>
-                  {attentionCount}
-                </div>
-              )}
-            </button>
-          )
-        })}
+      <div className="flex items-center gap-1 mb-1">
+        <AnimatedBackground
+          defaultValue={ccView}
+          onValueChange={(value) => value && setCcView(value as 'overview' | 'agents')}
+          className="bg-bg-subtle rounded-md"
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        >
+          <button data-id="overview" className="relative px-2 py-1.5 font-medium transition-colors text-fg-subtle hover:text-fg-base data-[checked=true]:text-fg-base" style={{ fontSize: '14px', lineHeight: '20px' }}>Overview</button>
+          <button data-id="agents" className="relative px-2 py-1.5 font-medium transition-colors text-fg-subtle hover:text-fg-base data-[checked=true]:text-fg-base" style={{ fontSize: '14px', lineHeight: '20px' }}>Harvey Agents</button>
+        </AnimatedBackground>
       </div>
 
       {ccView === 'agents' && (
@@ -4229,11 +4268,11 @@ function PlaybooksTab({ rules, gaps }: { rules: PlaybookRule[]; gaps: PlaybookGa
           { label: "Updates proposed", value: needsUpdate.length.toString(), sub: "Harvey flagged", icon: <RefreshCw size={16} color={hy.ui.warning.fg} />, warn: needsUpdate.length > 0 },
           { label: "Coverage gaps", value: gaps.length.toString(), sub: `${gaps.filter((g) => g.riskLevel === 'High').length} high risk`, icon: <Target size={16} color={hy.ui.danger.fg} />, danger: gaps.some((g) => g.riskLevel === 'High') },
           { label: "AI-aligned rules", value: `${aiActiveCount} / ${rules.length}`, sub: `${totalAutoReviews.toLocaleString()} auto-reviews this month`, icon: <Zap size={16} color={hy.ui.blue.fg} />, blue: true },
-        ].map(({ label, value, sub, icon, warn, danger, blue }) => {
-          const borderColor = danger ? hy.ui.danger.fg : warn ? hy.ui.warning.fg : hy.border.base
-          const bgColor = danger ? hy.ui.danger.bg : warn ? hy.ui.warning.bg : hy.bg.base
-          const textColor = danger ? hy.ui.danger.fg : warn ? hy.ui.warning.fg : blue ? hy.ui.blue.fg : hy.fg.base
-          const subColor = danger ? hy.ui.danger.fg : warn ? hy.ui.warning.fg : hy.fg.muted
+        ].map(({ label, value, sub, icon }) => {
+          const borderColor = hy.border.base
+          const bgColor = hy.bg.base
+          const textColor = hy.fg.base
+          const subColor = hy.fg.muted
           return (
             <div key={label} style={{ padding: '16px 20px', borderRadius: hy.radius.lg, border: `1px solid ${borderColor}`, background: bgColor }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>{icon}<span style={{ fontSize: 11, fontWeight: 500, color: subColor }}>{label}</span></div>
@@ -4245,42 +4284,29 @@ function PlaybooksTab({ rules, gaps }: { rules: PlaybookRule[]; gaps: PlaybookGa
       </div>
 
       {/* View tabs */}
-      <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${hy.border.base}` }}>
-        {([
-          { key: 'updates', label: "Playbook Updates", count: needsUpdate.length, icon: <RefreshCw size={13} /> },
-          { key: 'gaps', label: "New Playbook Development", count: gaps.length, icon: <GitBranch size={13} /> },
-          { key: 'ai-alignment', label: "AI Usage Alignment", count: aiActiveCount, icon: <Zap size={13} /> },
-        ] as { key: PlaybookView; label: string; count: number; icon: React.ReactNode }[]).map(({ key, label, count, icon }) => {
-          const isActive = view === key
-          return (
+      <div className="flex items-center gap-1 mb-1">
+        <AnimatedBackground
+          defaultValue={view}
+          onValueChange={(value) => { if (value) { setView(value as PlaybookView); setExpandedId(null) } }}
+          className="bg-bg-subtle rounded-md"
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        >
+          {([
+            { key: 'updates', label: 'Playbook Updates', count: needsUpdate.length },
+            { key: 'gaps', label: 'New Playbook Development', count: gaps.length },
+            { key: 'ai-alignment', label: 'AI Usage Alignment', count: aiActiveCount },
+          ] as { key: PlaybookView; label: string; count: number }[]).map(({ key, label, count }) => (
             <button
               key={key}
-              type="button"
-              onClick={() => { setView(key); setExpandedId(null) }}
-              className="focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 6,
-                padding: '10px 18px',
-                fontSize: 13,
-                fontWeight: isActive ? 600 : 400,
-                color: isActive ? hy.fg.base : hy.fg.subtle,
-                background: 'transparent',
-                border: 'none',
-                borderBottom: isActive ? `2px solid ${hy.fg.base}` : '2px solid transparent',
-                cursor: 'pointer',
-                marginBottom: -1,
-              }}
+              data-id={key}
+              className="relative px-2 py-1.5 font-medium transition-colors text-fg-subtle hover:text-fg-base data-[checked=true]:text-fg-base"
+              style={{ fontSize: '14px', lineHeight: '20px' }}
             >
-              {icon}
               {label}
-              <span style={{ fontSize: 11, fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: isActive ? hy.bg.component : hy.bg.subtle, color: isActive ? hy.fg.base : hy.fg.muted }}>
-                {count}
-              </span>
+              <span className="ml-1.5 text-xs font-semibold text-fg-muted">{count}</span>
             </button>
-          )
-        })}
+          ))}
+        </AnimatedBackground>
       </div>
 
       {/* § 9.1 — Playbook Updates */}
@@ -5383,179 +5409,1037 @@ const needsYourReview = [
   },
 ]
 
-function SimplePipelineView() {
-  const [selectedReview, setSelectedReview] = useState<number | null>(null)
+/* ── Agent helpers ──────────────────────────────────────────────────────── */
+
+function useAnimatedSteps(steps: string[], running: boolean) {
+  const [currentStep, setCurrentStep] = useState(0)
+  const [done, setDone] = useState(false)
+  useEffect(() => {
+    if (!running) { setCurrentStep(0); setDone(false); return }
+    if (currentStep >= steps.length) { setDone(true); return }
+    const timer = setTimeout(() => setCurrentStep((s) => s + 1), 1200)
+    return () => clearTimeout(timer)
+  }, [running, currentStep, steps.length])
+  return { currentStep, done }
+}
+
+const MODEL_COLORS: Record<string, { c: string; b: string }> = {
+  opus: { c: '#7C3AED', b: '#F3E8FF' },
+  sonnet: { c: hy.ui.blue.fg, b: hy.ui.blue.bg },
+  haiku: { c: hy.ui.success.fg, b: hy.ui.success.bg },
+}
+
+function SkillsPanel({ title, skills, onClose }: { title: string; skills: { name: string; source: string; model: string; desc: string; preview: string }[]; onClose: () => void }) {
+  const [expanded, setExpanded] = useState<number | null>(null)
+  const modelCounts = skills.reduce<Record<string, number>>((acc, sk) => { acc[sk.model] = (acc[sk.model] || 0) + 1; return acc }, {})
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+    <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 420, background: hy.bg.base, borderLeft: `1px solid ${hy.border.base}`, boxShadow: '-4px 0 24px rgba(0,0,0,0.08)', zIndex: 50, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ padding: '16px 20px', borderBottom: `1px solid ${hy.border.base}` }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+          <div style={{ fontSize: 14, fontWeight: 600, color: hy.fg.base }}>{title}</div>
+          <button type="button" onClick={onClose} style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: 4 }}><X size={16} color={hy.fg.muted} /></button>
+        </div>
+        <div style={{ fontSize: 11, color: hy.fg.muted }}>
+          {skills.length} skills{modelCounts.haiku ? ` · ${modelCounts.haiku} Haiku` : ''}{modelCounts.sonnet ? ` · ${modelCounts.sonnet} Sonnet` : ''}{modelCounts.opus ? ` · ${modelCounts.opus} Opus` : ''}
+        </div>
+      </div>
+      <div style={{ padding: '12px 20px', fontSize: 11, color: hy.fg.muted, lineHeight: 1.5, borderBottom: `1px solid ${hy.border.base}` }}>
+        Each skill is a set of instructions that controls a subagent's behavior. Skills run as parallel subagents — cheap models (Haiku) handle classification, expensive models (Opus) handle reasoning. Edit instructions directly to change how the agent works.
+      </div>
+      <div style={{ flex: 1, overflowY: 'auto', padding: '12px 20px' }}>
+        {skills.map((sk, i) => {
+          const isOpen = expanded === i
+          const mc = MODEL_COLORS[sk.model] || MODEL_COLORS.haiku
+          return (
+            <div key={sk.name} style={{ marginBottom: 10, padding: '12px 14px', borderRadius: hy.radius.md, border: `1px solid ${isOpen ? mc.c + '40' : hy.border.base}`, background: isOpen ? mc.b : hy.bg.subtle, transition: 'all 0.15s' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base }}>{sk.name}</div>
+                <div style={{ display: 'flex', gap: 4 }}>
+                  <span style={{ fontSize: 9, fontWeight: 700, textTransform: 'uppercase' as const, padding: '2px 6px', borderRadius: 8, color: mc.c, background: mc.b, border: `1px solid ${mc.c}30`, letterSpacing: '0.04em' }}>{sk.model}</span>
+                  <span style={{ fontSize: 10, padding: '2px 7px', borderRadius: 8, background: hy.bg.component, color: hy.fg.muted }}>{sk.source}</span>
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: hy.fg.subtle, lineHeight: 1.5, marginBottom: 8 }}>{sk.desc}</div>
+              {isOpen && (
+                <div style={{ fontFamily: 'monospace', fontSize: 11, lineHeight: 1.6, color: hy.fg.base, background: hy.bg.base, border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.sm, padding: '10px 12px', whiteSpace: 'pre-wrap' as const, marginBottom: 8 }}>{sk.preview}</div>
+              )}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button type="button" onClick={() => setExpanded(isOpen ? null : i)} style={{ fontSize: 11, padding: '3px 10px', borderRadius: hy.radius.xs, border: `1px solid ${hy.border.base}`, background: hy.bg.base, color: hy.fg.subtle, cursor: 'pointer' }}>{isOpen ? 'Hide instructions' : 'View instructions'}</button>
+                <button type="button" style={{ fontSize: 11, padding: '3px 10px', borderRadius: hy.radius.xs, border: `1px solid ${hy.border.base}`, background: hy.bg.base, color: hy.fg.subtle, cursor: 'pointer' }}>Edit</button>
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div style={{ padding: '12px 20px', borderTop: `1px solid ${hy.border.base}` }}>
+        <button type="button" style={{ width: '100%', padding: 8, borderRadius: hy.radius.sm, border: `1px dashed ${hy.border.base}`, background: hy.bg.subtle, fontSize: 12, color: hy.fg.muted, cursor: 'pointer' }}>+ Add custom skill</button>
+      </div>
+    </div>
+  )
+}
 
-      {/* ── Left panel: Harvey auto-reviewed ── */}
-      <div style={{ border: `1px solid ${hy.ui.success.border}`, borderRadius: hy.radius.lg, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', background: hy.ui.success.bg, borderBottom: `1px solid ${hy.ui.success.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <Zap size={16} color={hy.ui.success.fg} strokeWidth={1.8} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: hy.ui.success.fg }}>{"Harvey auto-reviewed"}</span>
-          <span style={{
-            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-            background: 'rgba(255,255,255,0.6)', color: hy.ui.success.fg,
-          }}>
-            {autoReviewedContracts.length}
-          </span>
-          <span style={{ fontSize: 12, color: hy.ui.success.fg, marginLeft: 'auto', opacity: 0.7 }}>{"No escalation needed"}</span>
+function AgentStepProgress({ steps, currentStep, done }: { steps: string[]; currentStep: number; done: boolean }) {
+  return (
+    <div style={{ marginTop: 8 }}>
+      {steps.map((step, i) => {
+        const isActive = i === currentStep && !done
+        const isComplete = i < currentStep || done
+        const isPending = i > currentStep && !done
+        return (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '3px 0', opacity: isPending ? 0.4 : 1 }}>
+            {isComplete && <CheckCircle size={13} color={hy.ui.success.fg} />}
+            {isActive && <Loader size={13} color={hy.ui.blue.fg} className="animate-spin" />}
+            {isPending && <Clock size={13} color={hy.fg.muted} />}
+            <span style={{ fontSize: 12, color: isComplete ? hy.ui.success.fg : isActive ? hy.ui.blue.fg : hy.fg.muted, fontWeight: isActive ? 600 : 400 }}>{step}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ── Review agent data ─────────────────────────────────────────────────── */
+
+const REVIEW_ISSUES: Record<number, Array<{ id: string; clause: string; severity: 'high' | 'medium' | 'low'; summary: string; playbookRule: string; recommendation: string; suggestedLanguage: string; priorContext?: string }>> = {
+  0: [
+    { id: '0-1', clause: 'Limitation of Liability', severity: 'high', summary: 'Uncapped liability \u2014 counterparty proposes no aggregate cap on direct damages.', playbookRule: 'Enterprise MSA Playbook v2.1, Rule 4.2: Aggregate liability must be capped at no more than 2x total annual fees paid under the agreement. Uncapped liability is an unacceptable position.', recommendation: 'Reject and counter with standard 2x annual fees cap. Brightwater accepted a similar cap in their most recent renewal \u2014 use that as leverage.', suggestedLanguage: '\u201CThe aggregate liability of either party under this Agreement shall not exceed two (2) times the total annual fees paid or payable by Customer in the twelve (12) months preceding the claim.\u201D', priorContext: 'Brightwater accepted 1.5x cap in 2024 MSA renewal after one round of negotiation.' },
+    { id: '0-2', clause: 'Auto-Renewal Notice Period', severity: 'medium', summary: 'Auto-renewal requires 90-day notice to opt out \u2014 our standard is 60 days.', playbookRule: 'Enterprise MSA Playbook v2.1, Rule 9.1: Opt-out notice period should be 60 days. Periods up to 90 days are acceptable deviations if other terms are favorable.', recommendation: 'Accept as reasonable deviation. The 90-day window is within the acceptable range and Brightwater\u2019s other terms are favorable overall.', suggestedLanguage: 'No change required. Current language: \u201CEither party may elect not to renew by providing written notice at least ninety (90) days prior to the end of the then-current term.\u201D' },
+    { id: '0-3', clause: 'IP Assignment Scope', severity: 'high', summary: 'IP assignment includes \u201Cderivative works\u201D \u2014 scope is overly broad and could capture customer configurations.', playbookRule: 'Enterprise MSA Playbook v2.1, Rule 6.1: Vendor retains IP in its platform only. Customer retains all IP in its data, configurations, and content. Broad assignments covering \u201Cderivative works\u201D are unacceptable.', recommendation: 'Narrow scope to vendor platform IP only. Remove \u201Cderivative works\u201D from the assignment clause and explicitly carve out customer-created configurations.', suggestedLanguage: '\u201CVendor retains all intellectual property rights in the Vendor Platform. Customer retains all intellectual property rights in Customer Data, Customer configurations, and any content created by or on behalf of Customer. For the avoidance of doubt, no assignment of derivative works is granted under this Agreement.\u201D' },
+  ],
+  1: [
+    { id: '1-1', clause: 'EU Transfer Mechanism', severity: 'high', summary: 'No Standard Contractual Clauses (SCCs) or adequacy decision referenced for EU data transfers.', playbookRule: 'Data Processing Agreement Playbook v1.3, Rule 2.1: All cross-border data transfers from the EU must reference an approved transfer mechanism \u2014 either EU SCCs (Module 2 or 3) or a relevant adequacy decision. Absence is a compliance blocker.', recommendation: 'This is a hard blocker. Require Nexus Analytics to incorporate EU SCCs (Module 2, Controller-to-Processor) as an exhibit before execution.', suggestedLanguage: '\u201CFor transfers of Personal Data from the European Economic Area to any country not subject to an adequacy decision, the parties shall enter into the Standard Contractual Clauses (Module 2: Controller to Processor) as set forth in Exhibit A.\u201D' },
+    { id: '1-2', clause: 'Subprocessor Disclosure', severity: 'high', summary: 'No subprocessor list provided \u2014 GDPR Article 28 requires prior disclosure of all subprocessors.', playbookRule: 'Data Processing Agreement Playbook v1.3, Rule 3.4: Processor must provide a complete list of subprocessors as an exhibit. Controller must have the right to object to new subprocessors within 30 days.', recommendation: 'Require Nexus Analytics to attach a subprocessor list as Exhibit B, including entity name, location, and processing purpose. Add a 30-day objection right for new subprocessors.', suggestedLanguage: '\u201CProcessor shall maintain and make available to Controller a current list of all Subprocessors (Exhibit B), including entity name, jurisdiction, and nature of processing. Processor shall notify Controller at least thirty (30) days prior to engaging any new Subprocessor, and Controller shall have the right to object.\u201D' },
+  ],
+  2: [
+    { id: '2-1', clause: 'Warranty Disclaimer', severity: 'medium', summary: 'Agreement disclaims all warranties \u2014 our playbook requires a minimum 12-month warranty on platform functionality.', playbookRule: 'SaaS Vendor Agreement Playbook v3.0, Rule 5.1: Vendor must warrant that the platform will perform materially in accordance with documentation for at least 12 months from the effective date.', recommendation: 'Counter with standard 12-month warranty clause. Orbis Financial has accepted similar warranty terms in prior SaaS agreements across the industry.', suggestedLanguage: '\u201CVendor warrants that the Platform will perform materially in accordance with the applicable Documentation for a period of twelve (12) months from the Effective Date. In the event of a breach of this warranty, Vendor shall, at its sole expense, correct the non-conforming functionality.\u201D' },
+    { id: '2-2', clause: 'Audit Rights Notice Period', severity: 'low', summary: 'Audit rights require only 15 business days\u2019 notice \u2014 our standard is 30 days.', playbookRule: 'SaaS Vendor Agreement Playbook v3.0, Rule 8.3: Customer audit rights must include at least 30 days\u2019 written notice. Shorter periods are acceptable deviations if other audit terms are favorable.', recommendation: 'Accept as minor deviation. The 15-day notice period is shorter than standard but the audit scope and frequency terms are otherwise favorable.', suggestedLanguage: 'No change required. Current language: \u201CCustomer may audit Vendor\u2019s records and systems upon fifteen (15) business days\u2019 prior written notice, no more than once per calendar year.\u201D' },
+  ],
+}
+
+const CONTRACT_REVIEW_SKILLS = [
+  { name: 'Playbook Review Algo', source: 'Internal', model: 'sonnet', desc: 'Compare clause vs playbook \u2192 accept / flag / reject', preview: 'For each clause in the incoming contract:\n1. Match to the corresponding playbook rule\n2. Compare against Standard position \u2014 if match, ACCEPT\n3. Check against Acceptable deviations \u2014 if match, ACCEPT WITH NOTE\n4. Check against Unacceptable positions \u2014 if match, FLAG\n5. If no match found, ESCALATE for manual review\n\nOutput per-clause verdict with confidence score and supporting rationale.' },
+  { name: 'Clause Library Lookup', source: 'Corpus', model: 'haiku', desc: 'Preferred language for this clause type', preview: 'Query the org-wide clause library for this clause type.\n\nReturn:\n- Standard (preferred) language text\n- Fallback language if available\n- Acceptance rate for each variant\n- Most recent usage date\n\nUsed by the review agent to suggest replacement language when flagging a clause.' },
+  { name: 'Prior Agreement Comparison', source: 'Corpus', model: 'sonnet', desc: 'How have we handled this before?', preview: 'Search executed contracts for prior agreements with the same counterparty or similar clause language.\n\nReturn:\n- Up to 5 most relevant prior agreements\n- How this clause was resolved in each (accepted/modified/rejected)\n- The final agreed language\n- Any escalation notes from prior reviews\n\nHelps the reviewer understand precedent before deciding.' },
+  { name: 'Cross-Clause Consistency', source: 'Internal', model: 'sonnet', desc: 'Detect conflicts between related clauses', preview: 'Check for internal consistency across related clause pairs:\n- Indemnity cap vs Liability cap (should be aligned)\n- Governing law vs Dispute resolution (jurisdiction match)\n- Confidentiality vs Data privacy (no gaps)\n- Termination vs Auto-renewal (no contradictions)\n- IP assignment vs License grant (no conflicts)\n\nFlag any inconsistencies with severity and suggested resolution.' },
+  { name: 'Structure Parser', source: 'Internal', model: 'haiku', desc: 'Extract key terms, clause types, doc structure', preview: 'Parse the incoming contract document:\n1. Identify all parties and their roles\n2. Extract defined terms and their definitions\n3. Map document structure (sections, subsections, schedules)\n4. Classify each section by clause type\n5. Extract key commercial terms (dates, amounts, thresholds)\n\nOutput structured JSON for downstream agents.' },
+  { name: 'Redline Generator', source: 'Internal', model: 'opus', desc: 'Track-changes from playbook + clause library', preview: 'Generate a complete redlined version of the contract.\n\nFor each flagged clause:\n1. Retrieve preferred language from clause library\n2. Apply playbook guidance for this clause type\n3. Generate tracked-changes markup (deletions in red, insertions in blue)\n4. Add margin comments explaining each change\n5. Reference the playbook rule that triggered the change\n\nOutput a .docx-compatible redline with all changes tracked.' },
+  { name: 'Issues List Formatter', source: 'Internal', model: 'haiku', desc: 'Flagged items for counterparty discussion', preview: 'Compile all flagged items into a structured issues list.\n\nFor each issue:\n- Issue number and clause reference\n- Current language (counterparty\'s position)\n- Our position (from playbook)\n- Suggested compromise (if applicable)\n- Priority: MUST RESOLVE / SHOULD DISCUSS / NICE TO HAVE\n\nSort by priority. Format as a clean table for counterparty discussion.' },
+  { name: 'Review Summary Writer', source: 'Internal', model: 'sonnet', desc: 'Risk posture, deviations, escalations', preview: 'Write an executive summary of the contract review.\n\nInclude:\n- Overall risk assessment (Low / Medium / High) with reasoning\n- Number of clauses reviewed vs flagged vs accepted\n- Key deviations from playbook with business impact\n- Recommended escalations (if any) with urgency\n- Comparison to org-wide norms for this contract type\n\nKeep to 200 words max. Write for a senior lawyer audience.' },
+]
+
+const REVIEW_AGENT_STEPS = [
+  'Parsing document structure and extracting parties\u2026',
+  'Classifying contract type: SaaS Vendor Agreement\u2026',
+  'Matching to playbook: SaaS Vendor Agreement Playbook v3.0\u2026',
+  'Reviewing 14 clauses against playbook positions\u2026',
+  'Checking clause library for preferred language\u2026',
+  'Searching prior agreements with Apex Dynamics\u2026',
+  'Running cross-clause consistency checks\u2026',
+  'Generating redline with tracked changes\u2026',
+  'Compiling issues list and review summary\u2026',
+  'Done \u2014 review ready.',
+]
+
+/* ── Pipeline / Review view ────────────────────────────────────────────── */
+
+function SimplePipelineView() {
+  const [skillsOpen, setSkillsOpen] = useState(false)
+  const [editAgent, setEditAgent] = useState(false)
+  const [demoRunning, setDemoRunning] = useState(false)
+  const [demoComplete, setDemoComplete] = useState(false)
+  const [reviewContract, setReviewContract] = useState<number | null>(null)
+  const [issueActions, setIssueActions] = useState<Record<string, 'accept' | 'override' | 'negotiate'>>({})
+  const [overrideNotes, setOverrideNotes] = useState<Record<string, string>>({})
+  const [expandedIssue, setExpandedIssue] = useState<string | null>(null)
+  const [outputTab, setOutputTab] = useState<'issues' | 'redline' | 'summary'>('issues')
+  const demoAnim = useAnimatedSteps(REVIEW_AGENT_STEPS, demoRunning)
+
+  // When the animated steps finish, mark demo as complete
+  useEffect(() => {
+    if (demoAnim.done && demoRunning) {
+      const t = setTimeout(() => { setDemoRunning(false); setDemoComplete(true) }, 800)
+      return () => clearTimeout(t)
+    }
+  }, [demoAnim.done, demoRunning])
+
+  if (editAgent) {
+    const CHECKLIST_ITEMS = [
+      { id: 'type', label: 'Detect contract type', desc: 'Classify as NDA, MSA, DPA, SOW, License, etc. and select the right playbook', editable: false },
+      { id: 'playbook', label: 'Match clauses to playbook', desc: 'Compare each clause against your org’s standard, acceptable, and unacceptable positions', editable: true },
+      { id: 'clause_lib', label: 'Check clause library', desc: 'Look up preferred language for each clause type and suggest replacements when deviating', editable: true },
+      { id: 'prior', label: 'Compare prior agreements', desc: 'Search last 12 months of executed contracts with this counterparty for precedent', editable: true },
+      { id: 'cross', label: 'Cross-clause consistency', desc: 'Flag conflicts between related clauses (e.g. indemnity cap vs liability cap, governing law vs dispute resolution)', editable: true },
+      { id: 'redline', label: 'Generate redline', desc: 'Produce a tracked-changes .docx with margin comments referencing the playbook rule', editable: false },
+      { id: 'issues', label: 'Create issues list', desc: 'Compile flagged items into a prioritized list for counterparty discussion', editable: false },
+      { id: 'summary', label: 'Write review summary', desc: 'Executive summary with risk assessment, key deviations, and recommended escalations', editable: false },
+    ]
+
+    const LEARNING_LOG = [
+      { date: 'Mar 21', type: 'pattern', agent: 'Playbook Maintenance', desc: 'Kirkland & Ellis always pushes back on standard non-solicitation — agent now auto-suggests Fallback B for Kirkland deals.' },
+      { date: 'Mar 19', type: 'threshold', agent: 'Playbook Maintenance', desc: 'Liability cap threshold lowered from 2x to 1.5x annual fees — 3 counterparties rejected the current cap in the last 30 days.' },
+      { date: 'Mar 15', type: 'new_variant', agent: 'Clause Library Maintenance', desc: 'New AI-specific data processing language detected across 4 recent DPAs. Added as Fallback variant for Data Privacy clause.' },
+      { date: 'Mar 12', type: 'pattern', agent: 'Clause Library Maintenance', desc: 'PE deal NDAs increasingly use carve-out language for non-solicitation. PE-specific variant now ranked #2 in library.' },
+      { date: 'Mar 8', type: 'accuracy', agent: 'Playbook Maintenance', desc: 'Enterprise MSA playbook accuracy dropped from 78% to 62% — flagged 3 rules for review. DORA compliance clauses were the primary driver.' },
+      { date: 'Mar 1', type: 'scheduled', agent: 'Both', desc: 'Monthly maintenance run completed. Playbook agent: 3 rules flagged across 4 playbooks. Clause library agent: 4 new variants detected, 2 tier re-rankings.' },
+    ]
+
+    const logTypeColors: Record<string, { fg: string; bg: string; label: string }> = {
+      pattern: { fg: hy.ui.blue.fg, bg: hy.ui.blue.bg, label: 'Pattern' },
+      threshold: { fg: hy.ui.warning.fg, bg: hy.ui.warning.bg, label: 'Threshold' },
+      new_variant: { fg: hy.ui.success.fg, bg: hy.ui.success.bg, label: 'New variant' },
+      accuracy: { fg: hy.ui.danger.fg, bg: hy.ui.danger.bg, label: 'Accuracy' },
+      scheduled: { fg: hy.fg.muted, bg: hy.bg.component, label: 'Scheduled' },
+    }
+
+    return (
+      <div>
+        {/* Header */}
+        <div style={{ marginBottom: 24, display: 'flex', alignItems: 'center', gap: 16 }}>
+          <button
+            type="button"
+            onClick={() => setEditAgent(false)}
+            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+            style={{ fontSize: 13, color: hy.fg.subtle, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 6 }}
+          >
+            &#8592; Back to Review
+          </button>
+          <span style={{ fontSize: 18, fontWeight: 700, color: hy.fg.base }}>Edit Contract Review Agent</span>
+        </div>
+
+        {/* Agent Configuration — single row */}
+        <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, padding: '14px 20px', background: hy.bg.base, marginBottom: 20, display: 'flex', gap: 20 }}>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: hy.fg.muted, marginBottom: 3 }}>Triggers</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: hy.fg.base }}>ask@harvey.ai (Email), Synced folders (Spaces, Teams), Manual upload</div>
+          </div>
+          <div style={{ width: 1, background: hy.border.base, flexShrink: 0 }} />
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: 12, color: hy.fg.muted, marginBottom: 3 }}>Output Format</div>
+            <div style={{ fontSize: 13, fontWeight: 500, color: hy.fg.base }}>Redline .docx + Issues list + Review summary</div>
+          </div>
+        </div>
+
+        {/* 2-column grid */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+          {/* Left column: What this agent checks */}
+          <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, padding: 20, background: hy.bg.base }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <div style={{ fontSize: 15, fontWeight: 600, color: hy.fg.base }}>What this agent checks</div>
+              <span style={{ fontSize: 11, color: hy.ui.success.fg, fontWeight: 600 }}>{CHECKLIST_ITEMS.length}/{CHECKLIST_ITEMS.length} active</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+              {CHECKLIST_ITEMS.map((item, i) => (
+                <div
+                  key={item.id}
+                  style={{
+                    display: 'flex', alignItems: 'flex-start', gap: 10,
+                    padding: '12px 0',
+                    borderBottom: i < CHECKLIST_ITEMS.length - 1 ? `1px solid ${hy.border.base}` : 'none',
+                  }}
+                >
+                  {/* Checkbox */}
+                  <div style={{
+                    width: 18, height: 18, borderRadius: 4, flexShrink: 0, marginTop: 1,
+                    background: hy.ui.success.fg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer',
+                  }}>
+                    <CheckCircle size={12} color="#fff" strokeWidth={2.5} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base, marginBottom: 2 }}>{item.label}</div>
+                    <div style={{ fontSize: 12, color: hy.fg.subtle, lineHeight: 1.5 }}>{item.desc}</div>
+                  </div>
+                  {item.editable && (
+                    <button
+                      type="button"
+                      className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                      style={{ fontSize: 11, fontWeight: 500, padding: '3px 10px', borderRadius: hy.radius.xs, border: `1px solid ${hy.border.base}`, background: hy.bg.base, color: hy.fg.subtle, cursor: 'pointer', flexShrink: 0, marginTop: 1 }}
+                    >
+                      Edit
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Right column: Agent learning log */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+            <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, padding: 20, background: hy.bg.base }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 }}>
+                <div style={{ fontSize: 15, fontWeight: 600, color: hy.fg.base }}>Agent learning log</div>
+                <span style={{ fontSize: 11, color: hy.fg.muted }}>{LEARNING_LOG.length} changes this month</span>
+              </div>
+              <div style={{ fontSize: 12, color: hy.fg.muted, marginBottom: 14, lineHeight: 1.5 }}>
+                Changes proposed by maintenance agents based on your executed contracts. All changes require admin approval before taking effect.
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                {LEARNING_LOG.map((entry, i) => {
+                  const tc = logTypeColors[entry.type] || logTypeColors.scheduled
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        padding: '10px 0',
+                        borderBottom: i < LEARNING_LOG.length - 1 ? `1px solid ${hy.border.base}` : 'none',
+                      }}
+                    >
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
+                        <span style={{ fontSize: 11, color: hy.fg.muted, fontWeight: 500, minWidth: 44 }}>{entry.date}</span>
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 7px', borderRadius: 8, color: tc.fg, background: tc.bg }}>{tc.label}</span>
+                        <span style={{ fontSize: 10, color: hy.fg.muted, marginLeft: 'auto' }}>{entry.agent}</span>
+                      </div>
+                      <div style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.5, paddingLeft: 50 }}>{entry.desc}</div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* How skills work */}
+            <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, padding: '16px 20px', background: hy.bg.subtle }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base, marginBottom: 6 }}>How skills work</div>
+              <div style={{ fontSize: 12, color: hy.fg.subtle, lineHeight: 1.6 }}>
+                Each checklist item above is powered by a skill — a set of instructions that tells the agent exactly what to do. The learning log shows when maintenance agents propose skill changes based on your real contract data. Power users can view and edit the raw instructions via the Skills panel on the agent banner.
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Full-screen contract review detail view ──
+  if (reviewContract !== null) {
+    const rc = needsYourReview[reviewContract]
+    const issues = REVIEW_ISSUES[reviewContract] || []
+    const resolvedCount = issues.filter((iss) => issueActions[iss.id]).length
+    const allResolved = resolvedCount === issues.length && issues.length > 0
+    const scoreColor = rc.score >= 75 ? hy.ui.success.fg : rc.score >= 60 ? hy.ui.gold.fg : hy.ui.warning.fg
+
+    const sevColor = (s: string) =>
+      s === 'high' ? { fg: hy.ui.danger.fg, bg: hy.ui.danger.bg } :
+      s === 'medium' ? { fg: hy.ui.warning.fg, bg: hy.ui.warning.bg } :
+      { fg: hy.ui.blue.fg, bg: hy.ui.blue.bg }
+
+    const actionBorderColor = (id: string) => {
+      const a = issueActions[id]
+      if (a === 'accept') return hy.ui.success.fg
+      if (a === 'override') return hy.ui.blue.fg
+      if (a === 'negotiate') return hy.ui.gold.fg
+      return hy.border.base
+    }
+
+    const tabs: Array<{ key: 'issues' | 'redline' | 'summary'; label: string }> = [
+      { key: 'issues', label: 'Issues List' },
+      { key: 'redline', label: 'Redline Preview' },
+      { key: 'summary', label: 'Review Summary' },
+    ]
+
+    return (
+      <div>
+        {/* Header */}
+        <div style={{ marginBottom: 20 }}>
+          <button
+            type="button"
+            onClick={() => { setReviewContract(null); setIssueActions({}); setOverrideNotes({}); setExpandedIssue(null); setOutputTab('issues') }}
+            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+            style={{ fontSize: 12, color: hy.fg.subtle, background: 'none', border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5, marginBottom: 12, padding: 0 }}
+          >
+            <ChevronLeft size={14} /> Back to pipeline
+          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: 18, fontWeight: 700, color: hy.fg.base }}>{rc.name}</span>
+            <span style={{ fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 999, background: hy.ui.neutral.bg, color: hy.fg.subtle }}>{rc.type}</span>
+          </div>
+          <div style={{ fontSize: 12, color: hy.fg.muted, marginTop: 4, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span>{rc.counterparty}</span>
+            <span style={{ opacity: 0.4 }}>&middot;</span>
+            <span>Submitted by {rc.submittedBy} ({rc.dept})</span>
+            <span style={{ opacity: 0.4 }}>&middot;</span>
+            <span>{rc.time}</span>
+            <span style={{ opacity: 0.4 }}>&middot;</span>
+            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, color: hy.ui.blue.fg }}>
+              <BookOpen size={10} /> {rc.playbook}
+            </span>
+            <span style={{ opacity: 0.4 }}>&middot;</span>
+            <span>Score: <strong style={{ color: scoreColor }}>{rc.score}</strong></span>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div style={{ display: 'flex', gap: 0, borderBottom: `1px solid ${hy.border.base}`, marginBottom: 20 }}>
+          {tabs.map((tab) => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setOutputTab(tab.key)}
+              className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+              style={{
+                fontSize: 13, fontWeight: outputTab === tab.key ? 600 : 400, color: outputTab === tab.key ? hy.fg.base : hy.fg.muted,
+                background: 'none', border: 'none', borderBottom: outputTab === tab.key ? `2px solid ${hy.fg.base}` : '2px solid transparent',
+                padding: '10px 20px', cursor: 'pointer',
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Issues List tab ── */}
+        {outputTab === 'issues' && (
+          <div>
+            {/* Progress bar */}
+            <div style={{ marginBottom: 16, display: 'flex', alignItems: 'center', gap: 12 }}>
+              <div style={{ flex: 1, height: 6, borderRadius: 999, background: hy.bg.component, overflow: 'hidden' }}>
+                <div style={{ height: '100%', borderRadius: 999, background: hy.ui.success.fg, width: `${issues.length > 0 ? (resolvedCount / issues.length) * 100 : 0}%`, transition: 'width 0.3s' }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: allResolved ? hy.ui.success.fg : hy.fg.subtle, flexShrink: 0 }}>
+                {resolvedCount}/{issues.length} resolved
+              </span>
+            </div>
+
+            {/* Issue cards */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+              {issues.map((issue) => {
+                const sc = sevColor(issue.severity)
+                const isExpanded = expandedIssue === issue.id
+                const action = issueActions[issue.id]
+                const borderColor = actionBorderColor(issue.id)
+
+                return (
+                  <div key={issue.id} style={{ border: `1px solid ${borderColor}`, borderRadius: hy.radius.md, overflow: 'hidden', transition: 'border-color 0.2s' }}>
+                    {/* Collapsed header */}
+                    <button
+                      type="button"
+                      onClick={() => setExpandedIssue(isExpanded ? null : issue.id)}
+                      className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                      style={{
+                        width: '100%', padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 10,
+                        background: action ? (action === 'accept' ? hy.ui.success.bg : action === 'override' ? hy.ui.blue.bg : hy.ui.gold.bg) : hy.bg.subtle,
+                        border: 'none', cursor: 'pointer', textAlign: 'left',
+                      }}
+                    >
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.fg, textTransform: 'uppercase' as const, flexShrink: 0 }}>
+                        {issue.severity}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base, flex: 1 }}>{issue.clause}</span>
+                      {action && (
+                        <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, color: action === 'accept' ? hy.ui.success.fg : action === 'override' ? hy.ui.blue.fg : hy.ui.gold.fg, background: hy.bg.base }}>
+                          {action === 'accept' ? 'Accepted' : action === 'override' ? 'Overridden' : 'Negotiate'}
+                        </span>
+                      )}
+                      <span style={{ fontSize: 12, color: hy.fg.muted, flex: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{issue.summary}</span>
+                      <ChevronRight size={14} color={hy.fg.muted} style={{ transform: isExpanded ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s', flexShrink: 0 }} />
+                    </button>
+
+                    {/* Expanded detail */}
+                    {isExpanded && (
+                      <div style={{ padding: '16px 20px', display: 'flex', flexDirection: 'column', gap: 12, background: hy.bg.base }}>
+                        {/* Playbook rule */}
+                        <div style={{ padding: '10px 14px', borderRadius: hy.radius.sm, background: hy.bg.subtle, border: `1px solid ${hy.border.base}` }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: hy.fg.muted, textTransform: 'uppercase' as const, marginBottom: 4, letterSpacing: '0.04em' }}>
+                            Source of truth &middot; Admin managed
+                          </div>
+                          <div style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.6 }}>{issue.playbookRule}</div>
+                        </div>
+
+                        {/* Harvey\u2019s recommendation */}
+                        <div>
+                          <div style={{ fontSize: 11, fontWeight: 600, color: hy.fg.base, marginBottom: 4, display: 'flex', alignItems: 'center', gap: 5 }}>
+                            <Bot size={12} color={hy.ui.blue.fg} /> Harvey\u2019s Recommendation
+                          </div>
+                          <div style={{ fontSize: 12, color: hy.fg.subtle, lineHeight: 1.6 }}>{issue.recommendation}</div>
+                        </div>
+
+                        {/* Suggested replacement language */}
+                        <div style={{ padding: '10px 14px', borderRadius: hy.radius.sm, background: hy.ui.success.bg }}>
+                          <div style={{ fontSize: 10, fontWeight: 600, color: hy.ui.success.fg, textTransform: 'uppercase' as const, marginBottom: 4 }}>Suggested Language</div>
+                          <div style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.6, fontStyle: 'italic' }}>{issue.suggestedLanguage}</div>
+                        </div>
+
+                        {/* Prior context */}
+                        {issue.priorContext && (
+                          <div style={{ fontSize: 11, color: hy.ui.blue.fg, display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+                            <Clock size={11} style={{ marginTop: 1, flexShrink: 0 }} />
+                            <span>{issue.priorContext}</span>
+                          </div>
+                        )}
+
+                        {/* Action buttons */}
+                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', paddingTop: 4 }}>
+                          <button
+                            type="button"
+                            onClick={() => setIssueActions((prev) => ({ ...prev, [issue.id]: 'accept' }))}
+                            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                            style={{
+                              fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: hy.radius.sm, cursor: 'pointer',
+                              background: action === 'accept' ? hy.ui.success.fg : hy.ui.success.bg, color: action === 'accept' ? '#fff' : hy.ui.success.fg,
+                              border: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
+                            }}
+                          >
+                            <CheckCircle size={12} /> Accept
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIssueActions((prev) => ({ ...prev, [issue.id]: 'override' }))}
+                            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                            style={{
+                              fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: hy.radius.sm, cursor: 'pointer',
+                              background: action === 'override' ? hy.ui.blue.fg : hy.ui.blue.bg, color: action === 'override' ? '#fff' : hy.ui.blue.fg,
+                              border: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
+                            }}
+                          >
+                            <Edit3 size={12} /> Override
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIssueActions((prev) => ({ ...prev, [issue.id]: 'negotiate' }))}
+                            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                            style={{
+                              fontSize: 12, fontWeight: 600, padding: '6px 16px', borderRadius: hy.radius.sm, cursor: 'pointer',
+                              background: action === 'negotiate' ? hy.ui.gold.fg : hy.ui.gold.bg, color: action === 'negotiate' ? '#fff' : hy.ui.gold.fg,
+                              border: 'none', display: 'inline-flex', alignItems: 'center', gap: 5,
+                            }}
+                          >
+                            <AlertTriangle size={12} /> Negotiate
+                          </button>
+                        </div>
+
+                        {/* Override textarea */}
+                        {action === 'override' && (
+                          <div>
+                            <textarea
+                              placeholder="Enter override rationale\u2026"
+                              value={overrideNotes[issue.id] || ''}
+                              onChange={(e) => setOverrideNotes((prev) => ({ ...prev, [issue.id]: e.target.value }))}
+                              style={{
+                                width: '100%', minHeight: 60, padding: '8px 12px', fontSize: 12, lineHeight: 1.5,
+                                borderRadius: hy.radius.sm, border: `1px solid ${hy.border.strong}`, background: hy.bg.base,
+                                color: hy.fg.base, resize: 'vertical', fontFamily: 'inherit',
+                              }}
+                            />
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+
+            {/* Generate Final Redline button */}
+            {allResolved && (
+              <div style={{ marginTop: 20, textAlign: 'center' }}>
+                <button
+                  type="button"
+                  className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                  style={{
+                    fontSize: 14, fontWeight: 700, padding: '12px 32px', borderRadius: hy.radius.sm, cursor: 'pointer',
+                    background: hy.fg.base, color: hy.bg.base, border: 'none', display: 'inline-flex', alignItems: 'center', gap: 8,
+                  }}
+                >
+                  <FileText size={14} /> Generate Final Redline
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Redline Preview tab ── */}
+        {outputTab === 'redline' && (
+          <div>
+            {/* Toolbar */}
+            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+              <button
+                type="button"
+                className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: hy.radius.sm, background: hy.fg.base, color: hy.bg.base, border: 'none', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 5 }}
+              >
+                <FileText size={11} /> Download .docx
+              </button>
+              <button
+                type="button"
+                className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                style={{ fontSize: 11, fontWeight: 600, padding: '6px 14px', borderRadius: hy.radius.sm, background: hy.bg.base, color: hy.fg.base, border: `1px solid ${hy.border.base}`, cursor: 'pointer' }}
+              >
+                Copy
+              </button>
+            </div>
+
+            {/* Simulated document */}
+            <div style={{
+              border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, background: hy.bg.base,
+              padding: '40px 60px', maxWidth: 720, fontFamily: 'Georgia, "Times New Roman", serif',
+              fontSize: 13, lineHeight: 1.8, color: hy.fg.base,
+            }}>
+              <div style={{ textAlign: 'center', marginBottom: 32 }}>
+                <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 4 }}>{rc.name}</div>
+                <div style={{ fontSize: 12, color: hy.fg.muted }}>Between {rc.counterparty} and Harvey Inc. &middot; Tracked Changes Draft</div>
+              </div>
+
+              {/* Section 7.1 — Limitation of Liability */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>7.1 Limitation of Liability</div>
+                <p style={{ margin: 0 }}>
+                  The aggregate liability of either party arising out of or in connection with this Agreement shall{' '}
+                  <span style={{ textDecoration: 'line-through', color: hy.ui.danger.fg, background: hy.ui.danger.bg }}>
+                    not be limited and shall extend to all direct and consequential damages
+                  </span>{' '}
+                  <span style={{ color: hy.ui.success.fg, background: hy.ui.success.bg, fontWeight: 500 }}>
+                    not exceed two (2) times the total annual fees paid or payable by Customer in the twelve (12) months preceding the claim
+                  </span>
+                  . Neither party shall be liable for any indirect, incidental, or punitive damages.
+                </p>
+                <div style={{ fontSize: 10, color: hy.fg.muted, fontStyle: 'italic', marginTop: 6, fontFamily: 'inherit' }}>
+                  [Comment: Playbook Rule 4.2 — Liability must be capped at 2x annual fees]
+                </div>
+              </div>
+
+              {/* Section 12.3 — Data Processing */}
+              <div style={{ marginBottom: 28 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>12.3 Data Processing</div>
+                <p style={{ margin: 0 }}>
+                  The Processor shall process personal data only on documented instructions from the Controller, in accordance with applicable data protection law.{' '}
+                  <span style={{ color: hy.ui.success.fg, background: hy.ui.success.bg, fontWeight: 500 }}>
+                    The parties shall ensure compliance with the EU AI Act (Regulation (EU) 2024/1689) where AI systems are used in the processing of personal data under this Agreement. The Processor shall maintain a register of AI systems used in data processing and provide transparency reports upon request.
+                  </span>
+                </p>
+                <div style={{ fontSize: 10, color: hy.fg.muted, fontStyle: 'italic', marginTop: 6, fontFamily: 'inherit' }}>
+                  [Comment: Inserted AI Act compliance language per DPA Playbook Rule 2.3]
+                </div>
+              </div>
+
+              {/* Section 15.2 — Termination */}
+              <div style={{ marginBottom: 12 }}>
+                <div style={{ fontWeight: 700, marginBottom: 8 }}>15.2 Termination for Convenience</div>
+                <p style={{ margin: 0 }}>
+                  Either party may terminate this Agreement for convenience upon sixty (60) days\u2019 prior written notice to the other party. Upon termination, all outstanding fees shall become immediately due and payable.
+                </p>
+                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, marginTop: 8, fontSize: 11, color: hy.ui.success.fg, fontFamily: 'sans-serif' }}>
+                  <CheckCircle size={12} /> Accepted \u2014 within playbook tolerance
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── Review Summary tab ── */}
+        {outputTab === 'summary' && (
+          <div>
+            {/* Metric cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16, marginBottom: 24 }}>
+              <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.md, padding: '16px 20px', background: hy.bg.base, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: hy.fg.muted, textTransform: 'uppercase' as const, marginBottom: 6 }}>Overall Risk</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: hy.ui.warning.fg }}>Medium</div>
+              </div>
+              <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.md, padding: '16px 20px', background: hy.bg.base, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: hy.fg.muted, textTransform: 'uppercase' as const, marginBottom: 6 }}>Issues Flagged</div>
+                <div style={{ fontSize: 24, fontWeight: 700, color: hy.fg.base }}>{issues.length}</div>
+              </div>
+              <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.md, padding: '16px 20px', background: hy.bg.base, textAlign: 'center' }}>
+                <div style={{ fontSize: 11, fontWeight: 600, color: hy.fg.muted, textTransform: 'uppercase' as const, marginBottom: 6 }}>Recommendation</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: hy.ui.success.fg }}>Proceed with redline</div>
+              </div>
+            </div>
+
+            {/* Findings breakdown */}
+            <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, padding: 20, background: hy.bg.base, marginBottom: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: hy.fg.base, marginBottom: 14 }}>Findings Breakdown</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                {issues.map((issue) => {
+                  const sc = sevColor(issue.severity)
+                  return (
+                    <div key={issue.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: `1px solid ${hy.border.base}` }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.fg, textTransform: 'uppercase' as const, flexShrink: 0 }}>
+                        {issue.severity}
+                      </span>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base, flexShrink: 0, minWidth: 160 }}>{issue.clause}</span>
+                      <span style={{ fontSize: 12, color: hy.fg.subtle }}>{issue.summary}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+
+            {/* Counterparty context */}
+            <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, padding: 20, background: hy.bg.subtle }}>
+              <div style={{ fontSize: 14, fontWeight: 600, color: hy.fg.base, marginBottom: 6 }}>Counterparty Context</div>
+              <div style={{ fontSize: 12, color: hy.fg.subtle, lineHeight: 1.6, marginBottom: 12 }}>
+                Harvey found <strong>4 prior agreements</strong> with {rc.counterparty} in the last 24 months. Key patterns:
+              </div>
+              <ul style={{ margin: 0, paddingLeft: 18, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                <li style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.5 }}>
+                  {rc.counterparty} typically accepts liability caps between 1.5x and 2x annual fees after one round of negotiation.
+                </li>
+                <li style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.5 }}>
+                  Prior DPA was executed with full subprocessor disclosure — they have an internal compliance team that can produce this quickly.
+                </li>
+                <li style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.5 }}>
+                  Average negotiation cycle with {rc.counterparty} is 8 business days (vs. org average of 14 days).
+                </li>
+                <li style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.5 }}>
+                  No escalations or disputes in prior agreements — considered a cooperative counterparty.
+                </li>
+              </ul>
+            </div>
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ position: 'relative' }}>
+      {/* ── Contract Review Agent banner ── */}
+      <div style={{
+        marginBottom: 20,
+        padding: '14px 20px',
+        background: hy.ui.success.bg,
+        border: `1px solid ${hy.ui.success.border}`,
+        borderRadius: hy.radius.lg,
+        display: 'flex',
+        alignItems: 'center',
+        gap: 10,
+      }}>
+        <Zap size={16} color={hy.ui.success.fg} strokeWidth={1.8} />
+        <span style={{ fontSize: 13, fontWeight: 600, color: hy.ui.success.fg }}>Contract Review Agent</span>
+        <span style={{ fontSize: 11, color: hy.ui.success.fg, opacity: 0.8 }}>
+          Triggered by ask@harvey.ai, synced folders, or upload &middot; Uses playbook + clause library + prior agreements
+        </span>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8, flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setSkillsOpen((o) => !o)}
+            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+            style={{
+              fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: hy.radius.sm,
+              background: 'rgba(255,255,255,0.6)', color: hy.ui.success.fg,
+              border: `1px solid ${hy.ui.success.border}`, cursor: 'pointer',
+            }}
+          >
+            Skills ({CONTRACT_REVIEW_SKILLS.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setEditAgent(true)}
+            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+            style={{
+              fontSize: 11, fontWeight: 600, padding: '5px 12px', borderRadius: hy.radius.sm,
+              background: 'rgba(255,255,255,0.6)', color: hy.ui.success.fg,
+              border: `1px solid ${hy.ui.success.border}`, cursor: 'pointer',
+            }}
+          >
+            Edit Agent
+          </button>
+          <button
+            type="button"
+            onClick={() => { if (demoComplete) { setDemoComplete(false) } else { setDemoRunning(true) } }}
+            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+            style={{
+              fontSize: 11, fontWeight: 600, padding: '5px 14px', borderRadius: hy.radius.sm,
+              background: demoRunning ? hy.ui.blue.fg : hy.ui.success.fg, color: hy.bg.base,
+              border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5,
+            }}
+          >
+            {demoRunning ? <><Loader size={11} className="animate-spin" /> Running&hellip;</> : demoComplete ? 'New Review' : <><Play size={11} /> Run Review</>}
+          </button>
+        </div>
+      </div>
+
+      {/* ── Demo: Contract Review Agent run ── */}
+      {(demoRunning || demoComplete) && (() => {
+        const demoContract = {
+          name: 'SaaS Platform License Agreement — Apex Dynamics',
+          file: 'Apex_Dynamics_SaaS_License_v2_redline.docx',
+          type: 'SaaS Vendor Agreement',
+          counterparty: 'Apex Dynamics Inc.',
+          playbook: 'SaaS Vendor Agreement Playbook v3.0',
+          clausesReviewed: 14,
+          clausesFlagged: 5,
+          clausesAccepted: 9,
+        }
+        const demoIssues = [
+          {
+            clause: 'Limitation of Liability',
+            severity: 'high' as const,
+            playbookRule: 'Cap at 2x annual fees; reject uncapped liability',
+            contractLanguage: 'Liability is limited to fees paid in the 6 months preceding the claim.',
+            agentVerdict: 'FLAGGED — Cap is 0.5x, below our 2x minimum. This is significantly below market.',
+            suggestedRedline: 'Replace with: "aggregate liability shall not exceed two (2) times the annual fees paid under this Agreement."',
+            priorAgreement: 'Last deal with Apex (2024): settled at 1.5x after one round of negotiation.',
+          },
+          {
+            clause: 'Data Privacy & Processing',
+            severity: 'high' as const,
+            playbookRule: 'Require DPA as exhibit; must include sub-processor list and breach notification <72hrs',
+            contractLanguage: 'Vendor shall process data in accordance with applicable law. No separate DPA referenced.',
+            agentVerdict: 'FLAGGED — No DPA exhibit attached. Missing sub-processor disclosure and breach notification SLA.',
+            suggestedRedline: 'Insert new Section 8.1: "Data Processing Addendum. The parties shall execute the DPA attached as Exhibit C…"',
+            priorAgreement: null,
+          },
+          {
+            clause: 'Auto-Renewal & Termination',
+            severity: 'medium' as const,
+            playbookRule: 'Require 90-day opt-out notice; reject auto-renewal >1 year',
+            contractLanguage: 'Agreement auto-renews for successive 2-year terms unless terminated with 30 days’ notice.',
+            agentVerdict: 'FLAGGED — 2-year auto-renewal exceeds our 1-year max. 30-day notice window is too short (our standard: 90 days).',
+            suggestedRedline: 'Reduce renewal term to 1 year; extend notice period to 90 days.',
+            priorAgreement: 'Org standard: 94% of SaaS deals use 1-year renewal with 90-day notice.',
+          },
+          {
+            clause: 'IP Ownership',
+            severity: 'medium' as const,
+            playbookRule: 'Customer retains all IP in its data; vendor retains platform IP; reject broad IP assignments',
+            contractLanguage: 'All customizations, configurations, and derivative works created during the engagement shall be the property of Vendor.',
+            agentVerdict: 'FLAGGED — "configurations and derivative works" is overly broad. Customer-created configurations should remain customer IP.',
+            suggestedRedline: 'Narrow to: "Vendor retains IP in its platform. Customer retains IP in all data, configurations, and content created by Customer."',
+            priorAgreement: null,
+          },
+          {
+            clause: 'Indemnification',
+            severity: 'low' as const,
+            playbookRule: 'Mutual indemnification for third-party IP claims; vendor must indemnify for data breaches',
+            contractLanguage: 'Vendor indemnifies Customer for third-party IP claims only. No data breach indemnification.',
+            agentVerdict: 'FLAGGED — Missing vendor indemnification for data breaches. This is standard for SaaS agreements.',
+            suggestedRedline: 'Add: "Vendor shall indemnify Customer against losses arising from any breach of Vendor’s data protection obligations."',
+            priorAgreement: 'Apex agreed to data breach indemnification in the 2024 NDA. Likely acceptable here.',
+          },
+        ]
+        const acceptedClauses = [
+          'Governing Law (Delaware — matches standard)',
+          'Payment Terms (Net 30 — matches standard)',
+          'Confidentiality (Mutual, 3-year survival — matches standard)',
+          'Representations & Warranties (Standard mutual reps)',
+          'Force Majeure (Standard language)',
+          'Assignment (Requires consent — matches standard)',
+          'Notices (Email + registered mail — acceptable)',
+          'Dispute Resolution (Arbitration, AAA rules — acceptable deviation)',
+          'Audit Rights (Annual, 30-day notice — matches standard)',
+        ]
+        const riskScore = 62
+        const riskColor = riskScore >= 80 ? hy.ui.success.fg : riskScore >= 60 ? hy.ui.gold.fg : hy.ui.warning.fg
+
+        const sevColor = (s: string) =>
+          s === 'high' ? { fg: hy.ui.danger.fg, bg: hy.ui.danger.bg } :
+          s === 'medium' ? { fg: hy.ui.warning.fg, bg: hy.ui.warning.bg } :
+          { fg: hy.ui.blue.fg, bg: hy.ui.blue.bg }
+
+        return (
+          <div style={{ marginBottom: 24, borderRadius: hy.radius.lg, border: `1px solid ${hy.ui.blue.fg}`, overflow: 'hidden' }}>
+            {/* Header */}
+            <div style={{ padding: '14px 20px', background: hy.ui.blue.bg, borderBottom: `1px solid ${hy.ui.blue.fg}`, display: 'flex', alignItems: 'center', gap: 10 }}>
+              <Bot size={16} color={hy.ui.blue.fg} />
+              <span style={{ fontSize: 14, fontWeight: 600, color: hy.ui.blue.fg }}>Contract Review Agent</span>
+              <span style={{ fontSize: 12, color: hy.ui.blue.fg }}>&middot; {demoContract.name}</span>
+              {demoComplete && (
+                <span style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 600, padding: '2px 10px', borderRadius: 999, background: hy.ui.success.bg, color: hy.ui.success.fg, border: `1px solid ${hy.ui.success.border}` }}>
+                  Complete
+                </span>
+              )}
+            </div>
+
+            {/* Step progress while running */}
+            {demoRunning && (
+              <div style={{ padding: '16px 20px', borderBottom: `1px solid ${hy.border.base}` }}>
+                <AgentStepProgress steps={REVIEW_AGENT_STEPS} currentStep={demoAnim.currentStep} done={demoAnim.done} />
+              </div>
+            )}
+
+            {/* Full results when complete */}
+            {demoComplete && (
+              <div style={{ background: hy.bg.base }}>
+                {/* Summary bar */}
+                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${hy.border.base}`, display: 'flex', alignItems: 'center', gap: 16 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ fontSize: 12, color: hy.fg.muted }}>Compliance Score:</span>
+                    <span style={{ fontSize: 18, fontWeight: 700, color: riskColor }}>{riskScore}</span>
+                  </div>
+                  <div style={{ width: 1, height: 20, background: hy.border.base }} />
+                  <div style={{ fontSize: 12, color: hy.fg.subtle }}>
+                    <span style={{ fontWeight: 600, color: hy.ui.success.fg }}>{demoContract.clausesAccepted}</span> accepted &middot;{' '}
+                    <span style={{ fontWeight: 600, color: hy.ui.warning.fg }}>{demoContract.clausesFlagged}</span> flagged &middot;{' '}
+                    <span style={{ fontWeight: 500 }}>{demoContract.clausesReviewed}</span> total
+                  </div>
+                  <div style={{ width: 1, height: 20, background: hy.border.base }} />
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: hy.ui.blue.fg }}>
+                    <BookOpen size={11} /> {demoContract.playbook}
+                  </div>
+                  <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                    <button type="button" className="focus-visible:outline-none focus-visible:shadow-button-neutral-focus" style={{ fontSize: 11, fontWeight: 600, padding: '5px 14px', borderRadius: hy.radius.sm, background: hy.fg.base, color: hy.bg.base, border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 5 }}>
+                      <FileText size={11} /> Download Redline
+                    </button>
+                  </div>
+                </div>
+
+                {/* Executive summary */}
+                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${hy.border.base}`, background: hy.bg.subtle }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, color: hy.fg.base, marginBottom: 6 }}>Executive Summary</div>
+                  <div style={{ fontSize: 12, color: hy.fg.subtle, lineHeight: 1.6 }}>
+                    This SaaS license agreement from Apex Dynamics contains <strong>5 clauses requiring attention</strong>, including 2 high-severity issues
+                    (uncapped liability and missing DPA). The auto-renewal term of 2 years exceeds org standards. IP ownership language is overly broad in Vendor’s
+                    favor. Prior negotiation history with Apex suggests they are receptive to our standard terms — liability cap was resolved in one round in the 2024 deal.
+                    <strong> Recommended: proceed with redline, prioritize liability cap and DPA.</strong>
+                  </div>
+                </div>
+
+                {/* Flagged issues */}
+                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${hy.border.base}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base, marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <AlertTriangle size={14} color={hy.ui.warning.fg} /> Flagged Issues ({demoIssues.length})
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {demoIssues.map((issue) => {
+                      const sc = sevColor(issue.severity)
+                      return (
+                        <div key={issue.clause} style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.md, overflow: 'hidden' }}>
+                          {/* Issue header */}
+                          <div style={{ padding: '10px 14px', display: 'flex', alignItems: 'center', gap: 8, background: hy.bg.subtle, borderBottom: `1px solid ${hy.border.base}` }}>
+                            <span style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base }}>{issue.clause}</span>
+                            <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: sc.bg, color: sc.fg, textTransform: 'uppercase' as const }}>{issue.severity}</span>
+                          </div>
+                          <div style={{ padding: '12px 14px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+                            {/* Playbook rule */}
+                            <div style={{ fontSize: 11, color: hy.fg.muted }}>
+                              <span style={{ fontWeight: 600 }}>Playbook rule:</span> {issue.playbookRule}
+                            </div>
+                            {/* Contract language */}
+                            <div style={{ padding: '8px 12px', borderRadius: hy.radius.sm, background: 'hsl(356,100%,98%)', border: '1px solid hsl(356,50%,90%)' }}>
+                              <div style={{ fontSize: 10, fontWeight: 600, color: hy.ui.danger.fg, marginBottom: 3, textTransform: 'uppercase' as const }}>Contract Language</div>
+                              <div style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.5, fontStyle: 'italic' }}>&ldquo;{issue.contractLanguage}&rdquo;</div>
+                            </div>
+                            {/* Agent verdict */}
+                            <div style={{ fontSize: 12, color: hy.ui.warning.fg, fontWeight: 500 }}>
+                              <Bot size={11} style={{ display: 'inline', marginRight: 4 }} />{issue.agentVerdict}
+                            </div>
+                            {/* Suggested redline */}
+                            <div style={{ padding: '8px 12px', borderRadius: hy.radius.sm, background: hy.ui.success.bg, border: `1px solid ${hy.ui.success.border}` }}>
+                              <div style={{ fontSize: 10, fontWeight: 600, color: hy.ui.success.fg, marginBottom: 3, textTransform: 'uppercase' as const }}>Suggested Redline</div>
+                              <div style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.5 }}>{issue.suggestedRedline}</div>
+                            </div>
+                            {/* Prior agreement (if any) */}
+                            {issue.priorAgreement && (
+                              <div style={{ fontSize: 11, color: hy.ui.blue.fg, display: 'flex', alignItems: 'flex-start', gap: 5 }}>
+                                <Clock size={11} style={{ marginTop: 1, flexShrink: 0 }} />
+                                <span>{issue.priorAgreement}</span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Accepted clauses */}
+                <div style={{ padding: '14px 20px', borderBottom: `1px solid ${hy.border.base}` }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: hy.fg.base, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <CheckCircle size={14} color={hy.ui.success.fg} /> Accepted Clauses ({acceptedClauses.length})
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap' as const, gap: 6 }}>
+                    {acceptedClauses.map((c) => (
+                      <div key={c} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, padding: '4px 10px', borderRadius: hy.radius.sm, background: hy.ui.success.bg, color: hy.ui.success.fg, border: `1px solid ${hy.ui.success.border}` }}>
+                        <CheckCircle size={10} /> {c}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div style={{ padding: '14px 20px', display: 'flex', gap: 8 }}>
+                  <button type="button" className="focus-visible:outline-none focus-visible:shadow-button-neutral-focus" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: hy.bg.base, background: hy.fg.base, border: 'none', borderRadius: hy.radius.sm, padding: '8px 16px', cursor: 'pointer' }}>
+                    <Send size={12} /> Approve &amp; Send Redline
+                  </button>
+                  <button type="button" className="focus-visible:outline-none focus-visible:shadow-button-neutral-focus" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, color: hy.fg.base, background: hy.bg.base, border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.sm, padding: '8px 16px', cursor: 'pointer' }}>
+                    Edit Redline with Harvey
+                  </button>
+                  <button type="button" className="focus-visible:outline-none focus-visible:shadow-button-neutral-focus" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 500, color: hy.ui.warning.fg, background: hy.bg.base, border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.sm, padding: '8px 16px', cursor: 'pointer' }}>
+                    Escalate to Senior Counsel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )
+      })()}
+
+      {/* ── Unified contract table ── */}
+      <div style={{ border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.lg, overflow: 'hidden' }}>
+        {/* Column headers */}
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 100px 100px 120px 120px', gap: 0, padding: '8px 20px', background: hy.bg.subtle, borderBottom: `1px solid ${hy.border.base}` }}>
+          {['Contract', 'Type', 'Source', 'Submitted by', 'Time'].map((h) => (
+            <div key={h} style={{ fontSize: 12, fontWeight: 500, color: hy.fg.muted }}>{h}</div>
+          ))}
+        </div>
+
+        {/* ── Section: Needs your review ── */}
+        <div style={{ padding: '10px 20px', background: hy.bg.subtle, borderBottom: `1px solid ${hy.border.base}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertTriangle size={13} color={hy.ui.warning.fg} strokeWidth={2} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: hy.ui.warning.fg }}>Needs your review</span>
+          <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: hy.ui.warning.bg, color: hy.ui.warning.fg }}>{needsYourReview.length}</span>
+          <span style={{ fontSize: 11, color: hy.fg.muted, marginLeft: 'auto' }}>First pass ready</span>
+        </div>
+        {needsYourReview.map((c, i) => (
+          <button
+            key={c.name}
+            type="button"
+            onClick={() => { setReviewContract(i); setIssueActions({}); setOverrideNotes({}); setExpandedIssue(null); setOutputTab('issues') }}
+            className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+            style={{
+              width: '100%', display: 'grid', gridTemplateColumns: '2fr 100px 100px 120px 120px', gap: 0, padding: '10px 20px', alignItems: 'center',
+              borderBottom: i < needsYourReview.length - 1 ? `1px solid ${hy.border.base}` : 'none',
+              background: hy.bg.base, cursor: 'pointer', textAlign: 'left', border: 'none',
+              borderBottomWidth: i < needsYourReview.length - 1 ? 1 : 0, borderBottomStyle: 'solid', borderBottomColor: hy.border.base,
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{c.name}</span>
+              <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: hy.ui.warning.bg, color: hy.ui.warning.fg, flexShrink: 0 }}>
+                {c.issues.length} {c.issues.length === 1 ? 'issue' : 'issues'}
+              </span>
+            </div>
+            <span style={{ fontSize: 12, color: hy.fg.subtle }}>{c.type}</span>
+            <span style={{ fontSize: 12, color: hy.fg.subtle }}>{c.source}</span>
+            <span style={{ fontSize: 12, color: hy.fg.subtle }}>{c.submittedBy}</span>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <span style={{ fontSize: 12, color: hy.fg.muted }}>{c.time}</span>
+              <ChevronRight size={14} color={hy.fg.muted} />
+            </div>
+          </button>
+        ))}
+
+        {/* ── Section: Harvey auto-reviewed ── */}
+        <div style={{ padding: '10px 20px', background: hy.bg.subtle, borderBottom: `1px solid ${hy.border.base}`, display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Zap size={13} color={hy.ui.success.fg} strokeWidth={2} />
+          <span style={{ fontSize: 12, fontWeight: 600, color: hy.ui.success.fg }}>Harvey auto-reviewed</span>
+          <span style={{ fontSize: 10, fontWeight: 600, padding: '1px 6px', borderRadius: 999, background: hy.ui.success.bg, color: hy.ui.success.fg }}>{autoReviewedContracts.length}</span>
+          <span style={{ fontSize: 11, color: hy.fg.muted, marginLeft: 'auto' }}>No escalation needed</span>
         </div>
         {autoReviewedContracts.map((c, i) => (
           <div
             key={c.name}
             style={{
-              padding: '12px 20px',
+              display: 'grid', gridTemplateColumns: '2fr 100px 100px 120px 120px', gap: 0, padding: '10px 20px', alignItems: 'center',
               borderBottom: i < autoReviewedContracts.length - 1 ? `1px solid ${hy.border.base}` : 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 12,
             }}
           >
-            <CheckCircle size={14} color={hy.ui.success.fg} style={{ flexShrink: 0 }} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{c.name}</div>
-              <div style={{ fontSize: 11, color: hy.fg.muted, marginTop: 2 }}>{c.submitter} · {c.source} · {c.type} · {c.time}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, minWidth: 0 }}>
+              <CheckCircle size={13} color={hy.ui.success.fg} style={{ flexShrink: 0 }} />
+              <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{c.name}</span>
             </div>
+            <span style={{ fontSize: 12, color: hy.fg.subtle }}>{c.type}</span>
+            <span style={{ fontSize: 12, color: hy.fg.subtle }}>{c.source}</span>
+            <span style={{ fontSize: 12, color: hy.fg.subtle }}>{c.submitter}</span>
+            <span style={{ fontSize: 12, color: hy.fg.muted }}>{c.time}</span>
           </div>
         ))}
       </div>
 
-      {/* ── Right panel: Needs your review ── */}
-      <div style={{ border: `1px solid ${hy.ui.warning.border}`, borderRadius: hy.radius.lg, overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', background: hy.ui.warning.bg, borderBottom: `1px solid ${hy.ui.warning.border}`, display: 'flex', alignItems: 'center', gap: 10 }}>
-          <AlertTriangle size={16} color={hy.ui.warning.fg} strokeWidth={1.8} />
-          <span style={{ fontSize: 14, fontWeight: 600, color: hy.ui.warning.fg }}>{"Needs your review"}</span>
-          <span style={{
-            fontSize: 11, fontWeight: 600, padding: '2px 8px', borderRadius: 999,
-            background: 'rgba(255,255,255,0.6)', color: hy.ui.warning.fg,
-          }}>
-            {needsYourReview.length}
-          </span>
-          <span style={{ fontSize: 12, color: hy.ui.warning.fg, marginLeft: 'auto', opacity: 0.7 }}>{"First pass ready"}</span>
-        </div>
-        {needsYourReview.map((c, i) => {
-          const isSelected = selectedReview === i
-          const scoreColor = c.score >= 75 ? hy.ui.success.fg : c.score >= 60 ? hy.ui.gold.fg : hy.ui.warning.fg
-          return (
-            <div key={c.name}>
-              {/* Contract row */}
-              <button
-                type="button"
-                onClick={() => setSelectedReview(isSelected ? null : i)}
-                className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-                style={{
-                  width: '100%',
-                  padding: '14px 20px',
-                  borderBottom: !isSelected && i < needsYourReview.length - 1 ? `1px solid ${hy.border.base}` : 'none',
-                  borderLeft: `3px solid ${hy.ui.warning.fg}`,
-                  background: isSelected ? `${hy.ui.warning.bg}66` : hy.bg.base,
-                  cursor: 'pointer',
-                  textAlign: 'left',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 12,
-                  border: 'none',
-                  borderBottomWidth: !isSelected && i < needsYourReview.length - 1 ? 1 : 0,
-                  borderBottomStyle: 'solid',
-                  borderBottomColor: hy.border.base,
-                }}
-              >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 3 }}>
-                    <span style={{ fontSize: 13, fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' as const }}>{c.name}</span>
-                  </div>
-                  <div style={{ fontSize: 11, color: hy.fg.muted }}>
-                    {c.submittedBy} · {c.source} · {c.counterparty} · {c.time}
-                  </div>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-                  <span style={{ fontSize: 10, fontWeight: 600, padding: '2px 8px', borderRadius: 999, background: hy.ui.warning.bg, color: hy.ui.warning.fg }}>
-                    {c.issues.length} {c.issues.length === 1 ? 'issue' : 'issues'}
-                  </span>
-                  <ChevronRight size={14} color={hy.fg.muted} style={{ transform: isSelected ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
-                </div>
-              </button>
-
-              {/* ── Expanded review workspace ── */}
-              {isSelected && (
-                <div style={{ borderBottom: i < needsYourReview.length - 1 ? `1px solid ${hy.border.base}` : 'none' }}>
-
-                  {/* Review workflow steps */}
-                  <div style={{ padding: '10px 20px', background: hy.bg.subtle, borderTop: `1px solid ${hy.border.base}`, borderBottom: `1px solid ${hy.border.base}`, display: 'flex', alignItems: 'center', gap: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <div style={{ width: 16, height: 16, borderRadius: 999, background: hy.ui.success.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <CheckCircle size={10} color={hy.ui.success.fg} />
-                      </div>
-                      <span style={{ fontSize: 10, fontWeight: 600, color: hy.ui.success.fg }}>{"Harvey reviewed"}</span>
-                    </div>
-                    <div style={{ width: 20, height: 1, background: hy.border.strong, margin: '0 6px' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                      <div style={{ width: 16, height: 16, borderRadius: 999, background: hy.ui.warning.bg, border: `2px solid ${hy.ui.warning.fg}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: 7, fontWeight: 800, color: hy.ui.warning.fg }}>2</span>
-                      </div>
-                      <span style={{ fontSize: 10, fontWeight: 700, color: hy.ui.warning.fg }}>{"Your review"}</span>
-                    </div>
-                    <div style={{ width: 20, height: 1, background: hy.border.base, margin: '0 6px' }} />
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 5, opacity: 0.4 }}>
-                      <div style={{ width: 16, height: 16, borderRadius: 999, background: hy.bg.component, border: `1px solid ${hy.border.base}`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <span style={{ fontSize: 7, fontWeight: 700, color: hy.fg.muted }}>3</span>
-                      </div>
-                      <span style={{ fontSize: 10, color: hy.fg.muted }}>{"Decision"}</span>
-                    </div>
-                    <div style={{ flex: 1 }} />
-                    <span style={{ fontSize: 10, color: hy.fg.muted }}>{c.submittedBy} · {c.dept}</span>
-                  </div>
-
-                  {/* Harvey first pass */}
-                  <div style={{ padding: '12px 20px', borderBottom: `1px solid ${hy.border.base}`, display: 'flex', alignItems: 'center', gap: 8, background: hy.bg.base }}>
-                    <Zap size={12} color={hy.ui.blue.fg} />
-                    <span style={{ fontSize: 11, fontWeight: 600, color: hy.fg.base }}>{"Harvey\u2019s First Pass"}</span>
-                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 10, color: hy.ui.blue.fg, background: hy.ui.blue.bg, padding: '1px 7px', borderRadius: 4 }}>
-                      <BookOpen size={9} />
-                      {c.playbook}
-                    </div>
-                    <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 4 }}>
-                      <span style={{ fontSize: 10, color: hy.fg.muted }}>{"Score:"}</span>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: scoreColor }}>{c.score}</span>
-                    </div>
-                  </div>
-
-                  {/* Harvey verdict */}
-                  <div style={{ padding: '10px 20px', fontSize: 12, color: hy.fg.subtle, lineHeight: 1.5, borderBottom: `1px solid ${hy.border.base}` }}>
-                    {c.harveyNote}
-                  </div>
-
-                  {/* Issues */}
-                  <div style={{ padding: '12px 20px', display: 'flex', flexDirection: 'column', gap: 6, background: hy.bg.subtle }}>
-                    <div style={{ fontSize: 10, fontWeight: 600, color: hy.fg.muted, textTransform: 'uppercase' as const, letterSpacing: '0.05em' }}>{"Findings — requires your review"}</div>
-                    {c.issues.map((issue) => (
-                      <div key={issue} style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: '8px 12px', background: hy.bg.base, borderRadius: hy.radius.sm, border: `1px solid ${hy.border.base}` }}>
-                        <AlertTriangle size={12} color={hy.ui.warning.fg} style={{ marginTop: 1, flexShrink: 0 }} />
-                        <span style={{ fontSize: 12, color: hy.fg.base, lineHeight: 1.4 }}>{issue}</span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Action buttons */}
-                  <div style={{ padding: '12px 20px', borderTop: `1px solid ${hy.border.base}`, background: hy.bg.base, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <button type="button" className="transition focus-visible:outline-none focus-visible:shadow-button-neutral-focus" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 600, color: hy.bg.base, background: hy.fg.base, border: 'none', borderRadius: hy.radius.sm, padding: '7px 14px', cursor: 'pointer' }}>
-                      <Send size={11} />{"Approve & send"}
-                    </button>
-                    <button type="button" className="transition hover:bg-hy-bg-base-hover focus-visible:outline-none focus-visible:shadow-button-neutral-focus" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 400, color: hy.fg.base, background: hy.bg.base, border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.sm, padding: '7px 14px', cursor: 'pointer' }}>
-                      {"Redline with Harvey"}
-                    </button>
-                    <button type="button" className="transition hover:bg-hy-bg-base-hover focus-visible:outline-none focus-visible:shadow-button-neutral-focus" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 12, fontWeight: 400, color: hy.ui.warning.fg, background: hy.bg.base, border: `1px solid ${hy.border.base}`, borderRadius: hy.radius.sm, padding: '7px 14px', cursor: 'pointer' }}>
-                      {"Send back to"} {c.submittedBy}
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )
-        })}
-      </div>
+      {/* ── Skills slide-over panel ── */}
+      {skillsOpen && (
+        <SkillsPanel title="Contract Review Agent Skills" skills={CONTRACT_REVIEW_SKILLS} onClose={() => setSkillsOpen(false)} />
+      )}
     </div>
   )
 }
@@ -5566,7 +6450,6 @@ export function ContractIntelligencePage() {
   const { tab } = useParams<{ tab: string }>()
   const activeSection = toTab(tab ?? 'overview')
   const router = useRouter()
-  const [isAskHarveyOpen, setIsAskHarveyOpen] = useState(false)
 
   const handleSectionChange = useCallback(
     (tab: ActiveTab) => {
@@ -5575,168 +6458,367 @@ export function ContractIntelligencePage() {
     [router]
   )
 
-  const quickPrompts = [
-    "Playbook rules that need review",
-    "Templates affected by DORA",
-    "Opt-out windows in the next 7 days",
-    "Contracts with uncapped liability",
-    "Clauses trending contested",
-  ]
-
   const sectionLabel = SECTION_LABELS[activeSection]
 
+  const [chatThreads, setChatThreads] = useState<ChatThread[]>([])
+  const [activeChatId, setActiveChatIdState] = useState<string | null>(null)
+  const activeChatIdRef = useRef<string | null>(null)
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false)
+
+  const setActiveChatId = useCallback((id: string | null) => {
+    activeChatIdRef.current = id
+    setActiveChatIdState(id)
+  }, [])
+
+  const activeChat = chatThreads.find(c => c.id === activeChatId)
+  const messages = activeChat?.messages || []
+  const isLoading = activeChat?.isLoading || false
+
+  const updateChatById = useCallback((chatId: string, updater: (chat: ChatThread) => ChatThread) => {
+    setChatThreads(prev => prev.map(chat => chat.id === chatId ? updater(chat) : chat))
+  }, [])
+
+  const createNewChat = useCallback(() => {
+    const newChatId = `chat-${Date.now()}`
+    setChatThreads(prev => [...prev, { id: newChatId, title: 'Untitled', messages: [], isLoading: false }])
+    setActiveChatId(newChatId)
+  }, [setActiveChatId])
+
+  const ensureChatExists = useCallback((): string => {
+    const currentChatId = activeChatIdRef.current
+    if (!currentChatId) {
+      const newChatId = `chat-${Date.now()}`
+      setChatThreads(prev => [...prev, { id: newChatId, title: 'Untitled', messages: [], isLoading: false }])
+      setActiveChatId(newChatId)
+      return newChatId
+    }
+    return currentChatId
+  }, [setActiveChatId])
+
+  const [chatInputValue, setChatInputValue] = useState('')
+  const [isChatInputFocused, setIsChatInputFocused] = useState(false)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [showBottomGradient, setShowBottomGradient] = useState(false)
+  const [isNearBottom, setIsNearBottom] = useState(true)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isInChatMode = chatThreads.length > 0
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (messagesContainerRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+        setIsScrolled(scrollTop > 0)
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+        setIsNearBottom(distanceFromBottom < 100)
+        setShowBottomGradient(distanceFromBottom > 1)
+      }
+    }
+    const container = messagesContainerRef.current
+    if (container) { container.addEventListener('scroll', handleScroll); handleScroll() }
+    return () => { if (container) container.removeEventListener('scroll', handleScroll) }
+  }, [])
+
+  useEffect(() => {
+    if (isNearBottom && messages.length > 0) {
+      const t = setTimeout(() => scrollToBottom(), 100)
+      return () => clearTimeout(t)
+    }
+  }, [messages, isNearBottom, scrollToBottom])
+
+  const generateResponse = (query: string): string => {
+    const q = query.toLowerCase()
+    if (q.includes('playbook') || q.includes('rule'))
+      return "Based on your current playbook configuration, I\u2019ve identified key rules that need attention:\n\n1. **Confidentiality Period** \u2014 87 of 96 negotiations settled at 2 years; current standard of 3 years is rarely held\n2. **AI/ML Training Restrictions** \u2014 Only 38% acceptance; counterparties requesting anonymized-data carve-outs\n3. **Payment Terms** \u2014 79 of 91 vendor negotiations accepted Net 45; Net 30 is rarely held\n\nWould you like me to draft updated rule language for any of these?"
+    if (q.includes('clause') || q.includes('risk') || q.includes('liability'))
+      return "Analyzing your clause library against recent negotiation data:\n\n\u2022 **AI/ML Training Restrictions** \u2014 38% acceptance, falling 22% \u2014 suggest permitting anonymized aggregate data\n\u2022 **Subprocessor Disclosure** \u2014 53% acceptance, non-compliant with GDPR Art. 28\n\u2022 **Brand Safety Rights** \u2014 44% acceptance, industry moving to mutual model\n\u2022 **Liability Cap** \u2014 82% acceptance, stable \u2014 no changes needed\n\nWould you like me to suggest updated golden positions for the declining clauses?"
+    if (q.includes('contract') || q.includes('pipeline') || q.includes('review'))
+      return "Current pipeline status:\n\n\u2022 **4 contracts** in review \u2014 Harvey has completed first-pass analysis on all\n\u2022 **2 contracts** awaiting signature\n\u2022 **1 contract** in drafting\n\u2022 **Top escalation**: GroupM Nexus advertising agreement ($4.2M) \u2014 brand safety clause deviates from golden position\n\nWould you like me to prioritize these by risk level?"
+    return `I\u2019m analyzing your contract intelligence data related to "${query}". I can help with playbook reviews, clause analysis, pipeline triage, or compliance checks. What would you like to focus on?`
+  }
+
+  const sendMessage = useCallback((messageText?: string) => {
+    const text = messageText || chatInputValue
+    if (!text.trim() || isLoading) return
+    const chatId = ensureChatExists()
+    const title = text.length > 40 ? text.substring(0, 40) + '...' : text
+    const userMessage: Message = { role: 'user', content: text, type: 'text' }
+    const thinkingContent = getThinkingContent('analysis')
+    const assistantMessage: Message = { role: 'assistant', content: '', type: 'text', isLoading: true, thinkingContent, loadingState: { showSummary: false, visibleBullets: 0 } }
+    updateChatById(chatId, chat => ({ ...chat, isLoading: true, title: chat.messages.length === 0 ? title : chat.title, messages: [...chat.messages, userMessage, assistantMessage] }))
+    setChatInputValue('')
+    if (textareaRef.current) textareaRef.current.style.height = '20px'
+    setTimeout(() => scrollToBottom(), 50)
+    setTimeout(() => { updateChatById(chatId, chat => ({ ...chat, messages: chat.messages.map((msg, idx) => idx === chat.messages.length - 1 && msg.role === 'assistant' && msg.isLoading ? { ...msg, loadingState: { ...msg.loadingState!, showSummary: true } } : msg) })); scrollToBottom() }, 600)
+    thinkingContent.bullets.forEach((_, bulletIdx) => {
+      setTimeout(() => { updateChatById(chatId, chat => ({ ...chat, messages: chat.messages.map((msg, idx) => idx === chat.messages.length - 1 && msg.role === 'assistant' && msg.isLoading ? { ...msg, loadingState: { ...msg.loadingState!, visibleBullets: bulletIdx + 1 } } : msg) })); scrollToBottom() }, 1000 + (bulletIdx * 400))
+    })
+    setTimeout(() => { updateChatById(chatId, chat => ({ ...chat, isLoading: false, messages: chat.messages.map((msg, idx) => idx === chat.messages.length - 1 && msg.role === 'assistant' && msg.isLoading ? { ...msg, content: generateResponse(text), isLoading: false } : msg) })); setTimeout(() => scrollToBottom(), 100) }, 2500)
+  }, [chatInputValue, isLoading, ensureChatExists, updateChatById, scrollToBottom])
+
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-base bg-bg-base">
-      {/* Page header */}
-      <div className="z-40 w-full shrink-0 border-b bg-primary">
-        <div className="flex items-center justify-between gap-4 px-6 py-4">
-          <div className="min-w-0">
-            {/* Breadcrumb product label */}
-            <div className="mb-1 flex items-center gap-1.5">
-              <Briefcase className="size-3.5 shrink-0 text-muted" />
-              <span className="text-xs font-medium text-muted">{"Contract Intelligence"}</span>
-              {activeSection !== 'overview' && activeSection !== 'contracts' && (
-                <>
-                  <ChevronRight size={11} className="text-muted" />
-                  <span className="text-xs text-muted">{sectionLabel}</span>
-                </>
-              )}
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-bg-base">
+      {/* Left side — Header + Content */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Page Header */}
+        <div className="flex items-center justify-between px-3 py-3 border-b border-border-base shrink-0">
+          <div className="flex items-center gap-1">
+            <div className="flex items-center text-sm">
+              <span className="font-medium text-fg-base" style={{ padding: '4px 6px' }}>{sectionLabel}</span>
             </div>
-            {/* Section title */}
-            <h1 className="text-xl font-semibold leading-tight text-primary">
-              {sectionLabel}
-            </h1>
-            {/* Pipeline live status line */}
+          </div>
+          <div className="flex items-center gap-2">
+            {!isChatPanelOpen && (
+              <button
+                onClick={() => setIsChatPanelOpen(true)}
+                className="h-7 w-7 flex items-center justify-center border border-border-base rounded-[6px] hover:bg-bg-subtle transition-colors"
+              >
+                <SvgIcon src="/central_icons/Assistant.svg" alt="Open chat" width={16} height={16} className="text-fg-base" />
+              </button>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="default" size="medium" className="gap-1.5">
+                  <Plus size={16} />
+                  Create
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                <DropdownMenuItem>
+                  <FileText className="w-4 h-4" />
+                  <span>Create contract</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Upload className="w-4 h-4" />
+                  <span>Upload contract</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Zap className="w-4 h-4" />
+                  <span>Use a workflow</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div style={{ padding: '20px 28px', maxWidth: 1200, margin: '0 auto' }}>
+
+            {/* Tab content */}
             {(activeSection === 'overview' || activeSection === 'contracts') && (
-              <div className="mt-1.5 flex items-center gap-3">
-                <span className="text-xs text-muted">{"2,847 contracts"}</span>
-                <span className="text-xs text-muted">·</span>
-                <span className="text-xs text-muted">{"9 agents running"}</span>
-                <span className="text-xs text-muted">·</span>
-                {/* Live sync badge with source tooltip */}
-                <div className="group relative">
-                  <div className="flex cursor-default items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 py-0.5">
-                    <span className="relative flex size-1.5">
-                      <span className="animate-ping absolute inline-flex size-full rounded-full bg-success opacity-75" />
-                      <span className="relative inline-flex size-1.5 rounded-full bg-success" />
-                    </span>
-                    <span className="text-xs font-medium text-success">{"Synced 2 min ago"}</span>
-                  </div>
-                  {/* Hover tooltip: source systems */}
-                  <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-56 rounded-lg border border-input bg-primary p-3 shadow-lg group-hover:block">
-                    <div className="mb-2 text-xs font-semibold text-primary">{"Connected systems"}</div>
-                    {[
-                      { name: 'Salesforce CPQ', time: '2 min ago', dot: 'bg-success' },
-                      { name: 'SharePoint', time: '2 min ago', dot: 'bg-success' },
-                      { name: 'DocuSign', time: '5 min ago', dot: 'bg-success' },
-                      { name: 'Ironclad', time: '18 min ago', dot: 'bg-warning' },
-                    ].map((sys) => (
-                      <div key={sys.name} className="flex items-center justify-between py-1">
-                        <div className="flex items-center gap-2">
-                          <span className={`size-1.5 rounded-full ${sys.dot}`} />
-                          <span className="text-xs text-primary">{sys.name}</span>
-                        </div>
-                        <span className="text-xs text-muted">{sys.time}</span>
+              <SimplePipelineView />
+            )}
+            {activeSection === 'playbooks' && (
+              <PlaybooksTab rules={playbookRules} gaps={playbookGaps} />
+            )}
+            {activeSection === 'clauses' && (
+              <ClausesTab clauses={clauseLibrary} />
+            )}
+
+          </div>
+        </div>
+      </div>
+
+      {/* Chat Panel Separator */}
+      {isChatPanelOpen && <div className="w-px bg-border-base flex-shrink-0" />}
+
+      {/* Chat Panel */}
+      <AnimatePresence mode="wait">
+        {isChatPanelOpen && (
+          <motion.div
+            ref={containerRef}
+            key="chat-panel"
+            className="flex flex-col bg-bg-base overflow-hidden w-[401px]"
+            initial={{ width: 0, opacity: 0 }}
+            animate={{ width: 401, opacity: 1 }}
+            exit={{ width: 0, opacity: 0 }}
+            transition={{ width: { duration: 0.3, ease: 'easeOut' }, opacity: { duration: 0.15, ease: 'easeOut' } }}
+            style={{ flexShrink: 0 }}
+          >
+            {/* Chat Header */}
+            <div className="px-4 py-3 flex items-center justify-between" style={{ height: '52px' }}>
+              <div className="flex items-center gap-1 overflow-hidden flex-1 min-w-0 max-w-[calc(100%-48px)]" style={{ flexWrap: 'nowrap' }}>
+                {chatThreads.length === 0 ? (
+                  <span className="text-sm font-medium rounded-md text-fg-base bg-bg-subtle whitespace-nowrap" style={{ padding: '4px 8px' }}>New chat</span>
+                ) : (
+                  chatThreads.map((thread) => (
+                    <button
+                      key={thread.id}
+                      onClick={() => setActiveChatId(thread.id)}
+                      className={cn(
+                        'text-sm font-medium rounded-md transition-colors whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0',
+                        thread.id === activeChatId ? 'text-fg-base bg-bg-subtle' : 'text-fg-muted hover:text-fg-base hover:bg-bg-subtle'
+                      )}
+                      style={{ padding: '4px 8px', maxWidth: '200px' }}
+                      title={thread.title || 'Untitled'}
+                    >
+                      {(thread.title || 'Untitled').length > 25 ? (thread.title || 'Untitled').substring(0, 25) + '...' : (thread.title || 'Untitled')}
+                    </button>
+                  ))
+                )}
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={createNewChat} className="h-7 w-7 flex items-center justify-center border border-border-base rounded-[6px] hover:bg-bg-subtle transition-colors flex-shrink-0" title="New chat">
+                  <Plus size={16} className="text-fg-base" />
+                </button>
+                <button onClick={() => setIsChatPanelOpen(false)} className="h-7 w-7 flex items-center justify-center border border-border-base rounded-[6px] hover:bg-bg-subtle transition-colors flex-shrink-0" title="Close chat">
+                  <SvgIcon src="/central_icons/Assistant - Filled.svg" alt="Close chat" width={16} height={16} className="text-fg-base" />
+                </button>
+              </div>
+            </div>
+
+            {/* Chat Content */}
+            <div className="flex-1 relative flex flex-col overflow-hidden">
+              <div className={`absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-bg-base via-bg-base/50 to-transparent pointer-events-none z-20 transition-opacity duration-300 ${isScrolled ? 'opacity-100' : 'opacity-0'}`} />
+              <div className={`absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-bg-base via-bg-base/50 to-transparent pointer-events-none z-20 transition-opacity duration-300 ${showBottomGradient ? 'opacity-100' : 'opacity-0'}`} />
+              <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto overflow-x-hidden px-5 pt-8 pb-4 ${!isInChatMode ? 'flex items-center justify-center' : ''}`}>
+                <div className="mx-auto w-full" style={{ maxWidth: '740px' }}>
+                  {!isInChatMode ? (
+                    <div className="flex flex-col items-center justify-center gap-6 py-3">
+                      <div className="w-full max-w-[624px] px-3 flex flex-col gap-0.5">
+                        <h1 className="text-[18px] font-medium leading-[24px] tracking-[-0.3px] text-fg-base">Ask Harvey</h1>
+                        <p className="text-sm leading-5 text-fg-subtle">Ask questions about your contracts, playbooks, or clause library.</p>
                       </div>
-                    ))}
+                      <div className="w-full max-w-[624px] flex flex-col">
+                        <div className="px-3 pb-3"><p className="text-xs leading-4 text-fg-muted">Get started&hellip;</p></div>
+                        <div className="flex flex-col">
+                          {[
+                            { icon: '/central_icons/Review.svg', label: 'Review pipeline contracts needing attention', prompt: 'Review the contracts in my pipeline that need attention and summarize the key issues' },
+                            { icon: '/central_icons/Review.svg', label: 'Analyze clause risk exposure', prompt: 'Analyze the risk exposure across my clause library and flag high-risk positions' },
+                            { icon: '/central_icons/Draft.svg', label: 'Draft playbook rule updates', prompt: 'Draft updated playbook rules based on recent contract negotiation trends' },
+                            { icon: '/central_icons/Review.svg', label: 'Summarize pipeline status', prompt: 'Summarize the current contract pipeline status and highlight escalations' },
+                          ].map((action, i) => (
+                            <React.Fragment key={action.label}>
+                              <button onClick={() => sendMessage(action.prompt)} disabled={isLoading} className="flex items-center gap-1.5 px-3 py-2 rounded-md hover:bg-bg-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left">
+                                <SvgIcon src={action.icon} alt="" width={16} height={16} className="text-fg-subtle flex-shrink-0" />
+                                <span className="text-sm leading-5 text-fg-subtle">{action.label}</span>
+                              </button>
+                              {i < 3 && <div className="h-px bg-border-base mx-3" />}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    messages.map((message, index) => (
+                      <div key={index} className={index !== messages.length - 1 ? 'mb-6' : ''}>
+                        {message.role === 'user' && (
+                          <div className="flex flex-col gap-2 items-end pl-[68px]">
+                            <div className="bg-bg-subtle px-4 py-3 rounded-[12px]">
+                              <div className="text-sm text-fg-base leading-5">{message.content}</div>
+                            </div>
+                            <div className="flex items-center justify-end">
+                              <button className="text-xs font-medium text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded px-2 py-1 flex items-center gap-1.5"><Copy className="w-3 h-3" />Copy</button>
+                              <button className="text-xs font-medium text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded px-2 py-1 flex items-center gap-1.5"><ListPlus className="w-3 h-3" />Save prompt</button>
+                              <button className="text-xs font-medium text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded px-2 py-1 flex items-center gap-1.5"><SquarePen className="w-3 h-3" />Edit query</button>
+                            </div>
+                          </div>
+                        )}
+                        {message.role === 'assistant' && (
+                          <div className="flex-1 min-w-0">
+                            {message.showThinking !== false && (
+                              <>
+                                {message.isLoading && message.thinkingContent && message.loadingState ? (
+                                  <ThinkingState variant="analysis" title="Thinking..." durationSeconds={undefined} summary={message.loadingState.showSummary ? message.thinkingContent.summary : undefined} bullets={message.thinkingContent.bullets?.slice(0, message.loadingState.visibleBullets)} isLoading={true} />
+                                ) : message.thinkingContent ? (
+                                  <ThinkingState variant="analysis" title="Thought" durationSeconds={3} summary={message.thinkingContent.summary} bullets={message.thinkingContent.bullets} defaultOpen={false} />
+                                ) : null}
+                              </>
+                            )}
+                            {!message.isLoading && message.content && (
+                              <AnimatePresence>
+                                <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }}>
+                                  <div className="text-sm text-fg-base leading-relaxed pl-2 whitespace-pre-wrap">{message.content}</div>
+                                  <div className="flex items-center justify-between mt-3">
+                                    <div className="flex items-center">
+                                      <button className="text-xs text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm px-2 py-1 flex items-center gap-1.5"><Copy className="w-3 h-3" />Copy</button>
+                                      <button className="text-xs text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm px-2 py-1 flex items-center gap-1.5"><Download className="w-3 h-3" />Export</button>
+                                      <button className="text-xs text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm px-2 py-1 flex items-center gap-1.5"><RotateCcw className="w-3 h-3" />Rewrite</button>
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <button className="text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm p-1.5"><ThumbsUp className="w-3 h-3" /></button>
+                                      <button className="text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm p-1.5"><ThumbsDown className="w-3 h-3" /></button>
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              </AnimatePresence>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Chat Input */}
+            <div className="px-5 pb-5 relative z-20 bg-bg-base">
+              <div className="mx-auto" style={{ maxWidth: '732px' }}>
+                <div
+                  className="bg-[#f6f5f4] dark:bg-[#2a2a2a] border border-[#f1efec] dark:border-[#3d3d3d] rounded-[12px] flex flex-col transition-all duration-200 focus-within:border-border-strong"
+                  style={{ boxShadow: '0px 18px 47px 0px rgba(0,0,0,0.03), 0px 7.5px 19px 0px rgba(0,0,0,0.02), 0px 4px 10.5px 0px rgba(0,0,0,0.02)' }}
+                >
+                  <div className="p-[10px] flex flex-col gap-[10px]">
+                    <div className="inline-flex items-center gap-[4px] px-[4px] py-[2px] bg-white dark:bg-[#1a1a1a] border border-[#f1efec] dark:border-[#3d3d3d] rounded-[4px] w-fit">
+                      <img src="/folderIcon.svg" alt="Contracts" className="w-3 h-3" />
+                      <span className="text-[12px] font-medium text-[#848079] dark:text-[#a8a5a0] leading-[16px]">Contracts</span>
+                    </div>
+                    <div className="px-[4px]">
+                      <div className="relative">
+                        <textarea
+                          ref={textareaRef}
+                          value={chatInputValue}
+                          onChange={(e) => { setChatInputValue(e.target.value); e.target.style.height = '20px'; e.target.style.height = Math.max(20, e.target.scrollHeight) + 'px' }}
+                          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !isLoading) { e.preventDefault(); sendMessage() } }}
+                          onFocus={() => setIsChatInputFocused(true)}
+                          onBlur={() => setIsChatInputFocused(false)}
+                          disabled={isLoading}
+                          className="w-full bg-transparent focus:outline-none text-fg-base placeholder-[#9e9b95] resize-none overflow-hidden disabled:opacity-50"
+                          style={{ fontSize: '14px', lineHeight: '20px', height: '20px', minHeight: '20px', maxHeight: '300px' }}
+                        />
+                        {!chatInputValue && !isChatInputFocused && (
+                          <div className="absolute inset-0 pointer-events-none text-[#9e9b95] dark:text-[#6b6b6b] flex items-start" style={{ fontSize: '14px', lineHeight: '20px' }}>
+                            <TextLoop interval={3000}>
+                              <span>Review pipeline contracts needing attention&hellip;</span>
+                              <span>Analyze clause risk exposure&hellip;</span>
+                              <span>Draft playbook rule updates&hellip;</span>
+                              <span>Summarize pipeline status&hellip;</span>
+                            </TextLoop>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="flex items-end justify-between pl-[10px] pr-[10px] pb-[10px]">
+                    <div className="flex items-center">
+                      <button className="h-[28px] px-[6px] flex items-center justify-center rounded-[6px] hover:bg-[#e4e1dd] dark:hover:bg-[#3d3d3d] transition-colors"><Paperclip size={16} className="text-fg-base" /></button>
+                      <button className="h-[28px] px-[6px] flex items-center justify-center rounded-[6px] hover:bg-[#e4e1dd] dark:hover:bg-[#3d3d3d] transition-colors"><Scale size={16} className="text-fg-base" /></button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {isLoading ? (
+                        <button disabled className="h-[28px] px-[8px] flex items-center justify-center bg-button-inverted text-fg-on-color rounded-[6px] cursor-not-allowed"><Spinner size="sm" /></button>
+                      ) : chatInputValue.trim() ? (
+                        <button onClick={() => sendMessage()} className="h-[28px] px-[8px] flex items-center justify-center bg-button-inverted text-fg-on-color rounded-[6px] hover:bg-button-inverted-hover transition-all"><CornerDownLeft size={16} /></button>
+                      ) : (
+                        <button className="h-[28px] px-[8px] flex items-center justify-center bg-[#e4e1dd] dark:bg-[#3d3d3d] rounded-[6px] hover:bg-[#d9d6d1] dark:hover:bg-[#4a4a4a] transition-all"><Mic className="w-4 h-4 text-fg-base" /></button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setIsAskHarveyOpen(true)}
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md bg-primary-inverse px-3 text-sm font-medium text-primary-inverse transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-            >
-              {"Ask Harvey"}
-            </button>
-            <button
-              type="button"
-              className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-input bg-primary px-2.5 text-sm font-medium transition-colors hover:bg-button-secondary focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-            >
-              <Upload size={14} />
-              {"Upload"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Ask Harvey side panel */}
-      {isAskHarveyOpen && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setIsAskHarveyOpen(false)}
-          aria-hidden="true"
-        />
-      )}
-      <div
-        className={cn(
-          'fixed right-0 top-0 z-50 flex h-full w-[480px] flex-col border-l bg-primary shadow-xl transition-transform duration-300',
-          isAskHarveyOpen ? 'translate-x-0' : 'translate-x-full'
+            </div>
+          </motion.div>
         )}
-      >
-        <div className="flex h-[3.25rem] shrink-0 items-center justify-between border-b px-4">
-          <span className="text-sm font-medium">{"Ask Harvey"}</span>
-          <button
-            type="button"
-            onClick={() => setIsAskHarveyOpen(false)}
-            className="flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-hy-bg-subtle hover:text-primary focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-            aria-label={"Close"}
-          >
-            ×
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="rounded-hy-xl bg-hy-bg-subtle pt-4 shadow-composer transition-shadow duration-100 focus-within:shadow-composer-focused hover:shadow-composer-hover">
-            <textarea
-              className="w-full min-h-20 resize-none border-0 bg-transparent px-6 text-base text-primary placeholder:text-muted focus:outline-none"
-              placeholder={"Ask a question about your contracts…"}
-              aria-label={"Ask a question about contracts"}
-              // eslint-disable-next-line jsx-a11y/no-autofocus
-              autoFocus={isAskHarveyOpen}
-            />
-            <div className="h-4" />
-          </div>
-          <div className="mt-2 px-2">
-            {quickPrompts.map((prompt) => (
-              <div key={prompt}>
-                <button
-                  type="button"
-                  className="-mx-2 flex h-[50px] w-[calc(100%+1rem)] items-center gap-2 rounded-lg px-2 text-left text-sm leading-5 text-muted transition-all hover:bg-hy-bg-base-hover hover:text-primary active:bg-hy-bg-base-pressed focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-                >
-                  {prompt}
-                </button>
-                <div className="border-b border-primary" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Scrollable body — white background */}
-      <ScrollArea className="h-full bg-primary">
-        <div className="flex flex-1 flex-col py-hy-lg pl-hy-xs pr-hy-lg">
-          {(activeSection === 'overview' || activeSection === 'contracts') && (
-            <SimplePipelineView />
-          )}
-          {activeSection === 'playbooks' && (
-            <PlaybooksTab rules={playbookRules} gaps={playbookGaps} />
-          )}
-          {activeSection === 'clauses' && (
-            <ClausesTab clauses={clauseLibrary} />
-          )}
-          {/* Hidden for Q2 — Templates and Key Dates tabs
-          {activeSection === 'templates' && (
-            <TemplatesTab rows={templates} />
-          )}
-          {activeSection === 'key-dates' && (
-            <KeyDatesTab dates={keyDates} />
-          )}
-          */}
-        </div>
-      </ScrollArea>
+      </AnimatePresence>
     </div>
   )
 }

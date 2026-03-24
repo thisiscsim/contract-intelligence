@@ -1,7 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { motion, AnimatePresence } from 'motion/react'
 
 import {
   AlertTriangle,
@@ -29,12 +30,71 @@ import {
   Users,
   X,
   Zap,
+  Paperclip,
+  Scale,
+  CornerDownLeft,
+  Mic,
+  Copy,
+  Download,
+  RotateCcw,
+  ThumbsUp,
+  ThumbsDown,
+  ListPlus,
+  SquarePen,
 } from 'lucide-react'
 
 import { cn } from '@/lib/utils'
 
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Button } from '@/components/ui/button'
+import { SvgIcon } from '@/components/svg-icon'
+import { Spinner } from '@/components/ui/spinner'
+import ThinkingState from '@/components/thinking-state'
+import { TextLoop } from '../../../components/motion-primitives/text-loop'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+
+/* ── Chat types ─────────────────────────────────────────────────────────── */
+type Message = {
+  role: 'user' | 'assistant'
+  content: string
+  type?: 'text' | 'artifact' | 'files'
+  isLoading?: boolean
+  thinkingContent?: { summary: string; bullets: string[] }
+  loadingState?: { showSummary: boolean; visibleBullets: number }
+  showThinking?: boolean
+}
+
+interface ChatThread {
+  id: string
+  title: string
+  messages: Message[]
+  isLoading: boolean
+}
+
+function getThinkingContent(variant: 'analysis' | 'draft' | 'review') {
+  switch (variant) {
+    case 'draft':
+      return {
+        summary: 'Planning structure and content before drafting the document.',
+        bullets: ['Identify audience and objective', 'Assemble relevant facts and authorities', 'Outline sections and key arguments']
+      }
+    case 'review':
+      return {
+        summary: 'Parsing materials and selecting fields for a concise comparison.',
+        bullets: ['Locate documents and parse key terms', 'Normalize entities and dates', 'Populate rows and verify data consistency']
+      }
+    default:
+      return {
+        summary: 'Analyzing the request and gathering relevant information.',
+        bullets: ['Understanding the context and requirements', 'Searching through contract documents', 'Preparing comprehensive response']
+      }
+  }
+}
 
 /* ── Design tokens ──────────────────────────────────────────────────────── */
 const hy = {
@@ -617,7 +677,7 @@ function TrendsView({ onTabChange, isAskHarveyOpen, setIsAskHarveyOpen }: {
 
       {/* Performance strip — top of page */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: hy.radius.lg, border: `1px solid ${hy.ui.success.fg}33`, background: hy.ui.success.bg + '44' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: hy.radius.lg, border: `1px solid ${hy.border.base}`, background: hy.bg.base }}>
           <div style={{ width: 38, height: 38, borderRadius: hy.radius.md, background: hy.ui.success.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Zap size={16} color={hy.ui.success.fg} />
           </div>
@@ -630,7 +690,7 @@ function TrendsView({ onTabChange, isAskHarveyOpen, setIsAskHarveyOpen }: {
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: hy.radius.lg, border: `1px solid ${hy.border.base}`, background: hy.bg.base }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: hy.radius.lg, border: `1px solid ${hy.border.base}`, background: hy.bg.base }}>
           <div style={{ width: 38, height: 38, borderRadius: hy.radius.md, background: hy.ui.blue.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <Users size={16} color={hy.ui.blue.fg} />
           </div>
@@ -642,7 +702,7 @@ function TrendsView({ onTabChange, isAskHarveyOpen, setIsAskHarveyOpen }: {
             </div>
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '14px 18px', borderRadius: hy.radius.lg, border: `1px solid ${hy.border.base}`, background: hy.bg.base }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, padding: 10, borderRadius: hy.radius.lg, border: `1px solid ${hy.border.base}`, background: hy.bg.base }}>
           <div style={{ width: 38, height: 38, borderRadius: hy.radius.md, background: hy.ui.gold.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
             <FileText size={16} color={hy.ui.gold.fg} />
           </div>
@@ -656,40 +716,6 @@ function TrendsView({ onTabChange, isAskHarveyOpen, setIsAskHarveyOpen }: {
         </div>
       </div>
 
-      {/* Quick actions + connected systems */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' as const }}>
-        <Button size="small"><Plus size={13} /> {"Create contract"}</Button>
-        <Button size="small" variant="outline"><Upload size={13} /> {"Upload for review"}</Button>
-        <Button size="small" variant="outline"><FileText size={13} /> {"Use a template"}</Button>
-        <div style={{ flex: 1 }} />
-        {/* Connected systems — animated sync badge with hover tooltip */}
-        <div className="group relative">
-          <div className="flex cursor-default items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2.5 py-1">
-            <span className="relative flex size-1.5">
-              <span className="animate-ping absolute inline-flex size-full rounded-full bg-success opacity-75" />
-              <span className="relative inline-flex size-1.5 rounded-full bg-success" />
-            </span>
-            <span className="text-xs font-medium text-success">{"Synced 2 min ago"}</span>
-          </div>
-          <div className="pointer-events-none absolute right-0 top-full z-50 mt-2 hidden w-52 rounded-lg border bg-primary p-3 shadow-lg group-hover:block">
-            <div className="mb-2 text-xs font-semibold text-primary">{"Connected systems"}</div>
-            {systemIntegrations.map((sys) => (
-              <div key={sys.id} className="flex items-center justify-between py-1">
-                <div className="flex items-center gap-2">
-                  <div style={{ width: 14, height: 14, borderRadius: 3, background: sys.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <span style={{ fontSize: 7, fontWeight: 800, color: sys.abbr === 'DS' ? '#333' : '#fff' }}>{sys.abbr}</span>
-                  </div>
-                  <span className="text-xs text-primary">{sys.name}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className={cn('size-1.5 rounded-full', sys.status === 'live' ? 'bg-success' : 'bg-warning')} />
-                  <span className="text-xs text-muted">{sys.lastSync}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* Agent cards — Contract Agent full row, then Playbook + Clause below */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -1489,8 +1515,109 @@ const TABS: Array<{ id: CITab; label: string; count?: number; countColor?: { fg:
 export function MetaContractIntelligencePage() {
   const { section } = useParams<{ section: string }>()
   const router = useRouter()
-  const [isAskHarveyOpen, setIsAskHarveyOpen] = useState(false)
-  const askHarveyPrompts = useAskHarveyPrompts()
+
+  const [chatThreads, setChatThreads] = useState<ChatThread[]>([])
+  const [activeChatId, setActiveChatIdState] = useState<string | null>(null)
+  const activeChatIdRef = useRef<string | null>(null)
+  const [isChatPanelOpen, setIsChatPanelOpen] = useState(false)
+
+  const setActiveChatId = useCallback((id: string | null) => {
+    activeChatIdRef.current = id
+    setActiveChatIdState(id)
+  }, [])
+
+  const activeChat = chatThreads.find(c => c.id === activeChatId)
+  const messages = activeChat?.messages || []
+  const isLoading = activeChat?.isLoading || false
+
+  const updateChatById = useCallback((chatId: string, updater: (chat: ChatThread) => ChatThread) => {
+    setChatThreads(prev => prev.map(chat => chat.id === chatId ? updater(chat) : chat))
+  }, [])
+
+  const createNewChat = useCallback(() => {
+    const newChatId = `chat-${Date.now()}`
+    setChatThreads(prev => [...prev, { id: newChatId, title: 'Untitled', messages: [], isLoading: false }])
+    setActiveChatId(newChatId)
+  }, [setActiveChatId])
+
+  const ensureChatExists = useCallback((): string => {
+    const currentChatId = activeChatIdRef.current
+    if (!currentChatId) {
+      const newChatId = `chat-${Date.now()}`
+      setChatThreads(prev => [...prev, { id: newChatId, title: 'Untitled', messages: [], isLoading: false }])
+      setActiveChatId(newChatId)
+      return newChatId
+    }
+    return currentChatId
+  }, [setActiveChatId])
+
+  const [chatInputValue, setChatInputValue] = useState('')
+  const [isChatInputFocused, setIsChatInputFocused] = useState(false)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
+  const [isScrolled, setIsScrolled] = useState(false)
+  const [showBottomGradient, setShowBottomGradient] = useState(false)
+  const [isNearBottom, setIsNearBottom] = useState(true)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const isInChatMode = chatThreads.length > 0
+
+  const scrollToBottom = useCallback((smooth = true) => {
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({ top: messagesContainerRef.current.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
+    }
+  }, [])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (messagesContainerRef.current) {
+        const { scrollTop, scrollHeight, clientHeight } = messagesContainerRef.current
+        setIsScrolled(scrollTop > 0)
+        const distanceFromBottom = scrollHeight - scrollTop - clientHeight
+        setIsNearBottom(distanceFromBottom < 100)
+        setShowBottomGradient(distanceFromBottom > 1)
+      }
+    }
+    const container = messagesContainerRef.current
+    if (container) { container.addEventListener('scroll', handleScroll); handleScroll() }
+    return () => { if (container) container.removeEventListener('scroll', handleScroll) }
+  }, [])
+
+  useEffect(() => {
+    if (isNearBottom && messages.length > 0) {
+      const t = setTimeout(() => scrollToBottom(), 100)
+      return () => clearTimeout(t)
+    }
+  }, [messages, isNearBottom, scrollToBottom])
+
+  const generateResponse = (query: string): string => {
+    const q = query.toLowerCase()
+    if (q.includes('playbook') || q.includes('rule'))
+      return "Based on your current playbook configuration, I\u2019ve identified 2 playbooks that need attention:\n\n1. **Enterprise SaaS Playbook** \u2014 3 rules require updates due to recent regulatory changes\n2. **NDA Standard Playbook** \u2014 1 rule flagged for review\n\nWould you like me to draft updated rule language for either of these?"
+    if (q.includes('clause') || q.includes('risk') || q.includes('liability'))
+      return "Analyzing your clause library against recent negotiation data:\n\n\u2022 **Indemnification** \u2014 High risk, 58% accept rate, trending contested\n\u2022 **Liability cap** \u2014 Low risk, 86% accept rate, stable\n\u2022 **Termination for cause** \u2014 Low risk, 91% accept rate\n\nWould you like me to suggest updated fallback language for the high-risk clauses?"
+    if (q.includes('contract') || q.includes('pipeline') || q.includes('review'))
+      return "Current pipeline status:\n\n\u2022 **8 contracts** auto-reviewed by Harvey \u2014 no escalation needed\n\u2022 **3 contracts** need your review \u2014 flagged issues include uncapped liability, broad IP assignment, and missing data processing terms\n\nWould you like me to prioritize these by risk level?"
+    return `I\u2019m analyzing your contract intelligence data related to "${query}". I can help with playbook reviews, clause analysis, pipeline triage, or compliance checks. What would you like to focus on?`
+  }
+
+  const sendMessage = useCallback((messageText?: string) => {
+    const text = messageText || chatInputValue
+    if (!text.trim() || isLoading) return
+    const chatId = ensureChatExists()
+    const title = text.length > 40 ? text.substring(0, 40) + '...' : text
+    const userMessage: Message = { role: 'user', content: text, type: 'text' }
+    const thinkingContent = getThinkingContent('analysis')
+    const assistantMessage: Message = { role: 'assistant', content: '', type: 'text', isLoading: true, thinkingContent, loadingState: { showSummary: false, visibleBullets: 0 } }
+    updateChatById(chatId, chat => ({ ...chat, isLoading: true, title: chat.messages.length === 0 ? title : chat.title, messages: [...chat.messages, userMessage, assistantMessage] }))
+    setChatInputValue('')
+    if (textareaRef.current) textareaRef.current.style.height = '20px'
+    setTimeout(() => scrollToBottom(), 50)
+    setTimeout(() => { updateChatById(chatId, chat => ({ ...chat, messages: chat.messages.map((msg, idx) => idx === chat.messages.length - 1 && msg.role === 'assistant' && msg.isLoading ? { ...msg, loadingState: { ...msg.loadingState!, showSummary: true } } : msg) })); scrollToBottom() }, 600)
+    thinkingContent.bullets.forEach((_, bulletIdx) => {
+      setTimeout(() => { updateChatById(chatId, chat => ({ ...chat, messages: chat.messages.map((msg, idx) => idx === chat.messages.length - 1 && msg.role === 'assistant' && msg.isLoading ? { ...msg, loadingState: { ...msg.loadingState!, visibleBullets: bulletIdx + 1 } } : msg) })); scrollToBottom() }, 1000 + (bulletIdx * 400))
+    })
+    setTimeout(() => { updateChatById(chatId, chat => ({ ...chat, isLoading: false, messages: chat.messages.map((msg, idx) => idx === chat.messages.length - 1 && msg.role === 'assistant' && msg.isLoading ? { ...msg, content: generateResponse(text), isLoading: false } : msg) })); setTimeout(() => scrollToBottom(), 100) }, 2500)
+  }, [chatInputValue, isLoading, ensureChatExists, updateChatById, scrollToBottom])
 
   const activeTab: CITab =
     section === 'playbooks'   ? 'playbooks' :
@@ -1504,114 +1631,276 @@ export function MetaContractIntelligencePage() {
   }
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border-base bg-bg-base">
-      <ScrollArea className="h-full">
-        <div style={{ padding: '20px 28px', maxWidth: 1200, margin: '0 auto' }}>
-
-          {/* Page header */}
-          <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                <Briefcase className="size-5 shrink-0" />
-                <h1 style={{ fontSize: 18, fontWeight: 700, color: hy.fg.base, margin: 0 }}>{"Contracts Command Center"}</h1>
+    <div className="flex min-h-0 flex-1 overflow-hidden bg-bg-base">
+      {/* Left side — Header + Content */}
+      <div className="flex-1 flex flex-col overflow-hidden min-w-0">
+        {/* Page Header */}
+        <div className="flex items-center justify-between px-3 py-3 border-b border-border-base shrink-0">
+          <div className="flex items-center gap-2">
+            <div className="flex items-center text-sm">
+              <span className="font-medium text-fg-base" style={{ padding: '4px 6px' }}>Contracts</span>
+            </div>
+            <div className="group relative">
+              <div className="flex cursor-default items-center gap-1.5 rounded-full border border-success/30 bg-success/10 px-2 py-0.5">
+                <span className="relative flex size-1.5">
+                  <span className="animate-ping absolute inline-flex size-full rounded-full bg-success opacity-75" />
+                  <span className="relative inline-flex size-1.5 rounded-full bg-success" />
+                </span>
+                <span className="text-xs font-medium text-success">{"Synced 2 min ago"}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' as const }}>
-                <span style={{ fontSize: 11, color: hy.fg.muted }}>{"Synced"}</span>
+              <div className="pointer-events-none absolute left-0 top-full z-50 mt-2 hidden w-52 rounded-lg border bg-primary p-3 shadow-lg group-hover:block">
+                <div className="mb-2 text-xs font-semibold text-primary">{"Connected systems"}</div>
                 {systemIntegrations.map((sys) => (
-                  <div key={sys.id} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: 999, background: sys.status === 'live' ? hy.ui.success.fg : hy.ui.warning.fg, flexShrink: 0 }} />
-                    <span style={{ fontSize: 11, color: hy.fg.subtle }}>{sys.name}</span>
+                  <div key={sys.id} className="flex items-center justify-between py-1">
+                    <div className="flex items-center gap-2">
+                      <div style={{ width: 14, height: 14, borderRadius: 3, background: sys.color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <span style={{ fontSize: 7, fontWeight: 800, color: sys.abbr === 'DS' ? '#333' : '#fff' }}>{sys.abbr}</span>
+                      </div>
+                      <span className="text-xs text-primary">{sys.name}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={cn('size-1.5 rounded-full', sys.status === 'live' ? 'bg-success' : 'bg-warning')} />
+                      <span className="text-xs text-muted">{sys.lastSync}</span>
+                    </div>
                   </div>
                 ))}
-                <span style={{ fontSize: 11, color: hy.fg.muted }}>· 2m ago</span>
               </div>
             </div>
-            {/* Ask Harvey — classic black button, top-right */}
-            <Button onClick={() => setIsAskHarveyOpen(true)}>
-              <Zap size={14} /> {"Ask Harvey"}
-            </Button>
           </div>
-
-          {/* Ask Harvey slide-over panel (page-level) */}
-          {isAskHarveyOpen && (
-            <div className="fixed inset-0 z-40" onClick={() => setIsAskHarveyOpen(false)} aria-hidden="true" />
-          )}
-          <div className={cn(
-            'fixed right-0 top-0 z-50 flex h-full w-[460px] flex-col border-l bg-primary shadow-xl transition-transform duration-300',
-            isAskHarveyOpen ? 'translate-x-0' : 'translate-x-full'
-          )}>
-            <div className="flex h-[3.25rem] shrink-0 items-center justify-between border-b px-4">
-              <div className="flex items-center gap-2">
-                <Zap size={14} className="text-muted" />
-                <span className="text-sm font-medium">{"Ask Harvey"}</span>
-              </div>
+          <div className="flex items-center gap-2">
+            {!isChatPanelOpen && (
               <button
-                type="button"
-                onClick={() => setIsAskHarveyOpen(false)}
-                className="flex size-7 items-center justify-center rounded-md text-muted transition hover:bg-hy-bg-subtle hover:text-primary focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
+                onClick={() => setIsChatPanelOpen(true)}
+                className="h-7 w-7 flex items-center justify-center border border-border-base rounded-[6px] hover:bg-bg-subtle transition-colors"
               >
-                <X size={15} />
+                <SvgIcon src="/central_icons/Assistant.svg" alt="Open chat" width={16} height={16} className="text-fg-base" />
               </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-4">
-              <div className="rounded-hy-xl bg-hy-bg-subtle pt-4 shadow-composer transition-shadow duration-100 focus-within:shadow-composer-focused hover:shadow-composer-hover">
-                <textarea
-                  className="w-full min-h-20 resize-none border-0 bg-transparent px-6 text-base text-primary placeholder:text-muted focus:outline-none"
-                  placeholder={"Ask a question about your contracts…"}
-                  aria-label={"Ask Harvey about contracts"}
-                  // eslint-disable-next-line jsx-a11y/no-autofocus
-                  autoFocus={isAskHarveyOpen}
-                />
-                <div className="h-4" />
-              </div>
-              <div className="mt-2 px-2">
-                {askHarveyPrompts.map((prompt) => (
-                  <div key={prompt}>
-                    <button
-                      type="button"
-                      className="-mx-2 flex h-[50px] w-[calc(100%+1rem)] items-center gap-2 rounded-lg px-2 text-left text-sm leading-5 text-muted transition-all hover:bg-hy-bg-base-hover hover:text-primary active:bg-hy-bg-base-pressed focus-visible:outline-none focus-visible:shadow-button-neutral-focus"
-                    >
-                      {prompt}
-                    </button>
-                    <div className="border-b border-primary" />
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="default" size="medium" className="gap-1.5">
+                  <Plus className="h-4 w-4" />
+                  Create
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[200px]">
+                <DropdownMenuItem>
+                  <FileText className="w-4 h-4" />
+                  <span>Create contract</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Upload className="w-4 h-4" />
+                  <span>Upload contract</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem>
+                  <Zap className="w-4 h-4" />
+                  <span>Use a workflow</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
-
-          {/* Tab navigation */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 0, borderBottom: `1px solid ${hy.border.base}`, marginBottom: 20 }}>
-            {TABS.map((tab) => {
-              const isActive = activeTab === tab.id
-              const badgeColor = tab.countColor ?? hy.ui.neutral
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => handleTabChange(tab.id)}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontSize: 13, fontWeight: isActive ? 600 : 400, color: isActive ? hy.fg.base : hy.fg.muted, padding: '10px 16px', background: 'none', border: 'none', borderBottom: isActive ? `2px solid ${hy.fg.base}` : '2px solid transparent', marginBottom: -1, cursor: 'pointer' }}
-                >
-                  {tab.label}
-                  {tab.count !== undefined && (
-                    <span style={{ fontSize: 10, fontWeight: 700, padding: '1px 5px', borderRadius: 999, background: isActive ? badgeColor.bg : hy.bg.component, color: isActive ? badgeColor.fg : hy.fg.muted }}>
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          {/* Tab content */}
-          {activeTab === 'trends'      && <TrendsView onTabChange={handleTabChange} isAskHarveyOpen={isAskHarveyOpen} setIsAskHarveyOpen={setIsAskHarveyOpen} />}
-          {activeTab === 'playbooks'   && <PlaybooksView />}
-          {activeTab === 'clauses'     && <ClausesView />}
-          {activeTab === 'escalations' && <EscalationsView />}
-          {activeTab === 'contracts'   && <AllContractsView />}
-
         </div>
-      </ScrollArea>
+
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto overflow-x-hidden">
+          <div style={{ padding: '20px 28px', maxWidth: 1200, margin: '0 auto' }}>
+            <TrendsView onTabChange={handleTabChange} isAskHarveyOpen={isChatPanelOpen} setIsAskHarveyOpen={setIsChatPanelOpen} />
+          </div>
+        </div>
+      </div>
+
+      {/* Chat Panel Separator */}
+      {isChatPanelOpen && <div className="w-px bg-border-base flex-shrink-0" />}
+
+      {/* Chat Panel */}
+        <AnimatePresence mode="wait">
+          {isChatPanelOpen && (
+            <motion.div
+              ref={containerRef}
+              key="chat-panel"
+              className="flex flex-col bg-bg-base overflow-hidden w-[401px]"
+              initial={{ width: 0, opacity: 0 }}
+              animate={{ width: 401, opacity: 1 }}
+              exit={{ width: 0, opacity: 0 }}
+              transition={{ width: { duration: 0.3, ease: 'easeOut' }, opacity: { duration: 0.15, ease: 'easeOut' } }}
+              style={{ flexShrink: 0 }}
+            >
+              {/* Chat Header */}
+              <div className="px-4 py-3 flex items-center justify-between" style={{ height: '52px' }}>
+                <div className="flex items-center gap-1 overflow-hidden flex-1 min-w-0 max-w-[calc(100%-48px)]" style={{ flexWrap: 'nowrap' }}>
+                  {chatThreads.length === 0 ? (
+                    <span className="text-sm font-medium rounded-md text-fg-base bg-bg-subtle whitespace-nowrap" style={{ padding: '4px 8px' }}>New chat</span>
+                  ) : (
+                    chatThreads.map((thread) => (
+                      <button
+                        key={thread.id}
+                        onClick={() => setActiveChatId(thread.id)}
+                        className={cn(
+                          'text-sm font-medium rounded-md transition-colors whitespace-nowrap overflow-hidden text-ellipsis flex-shrink-0',
+                          thread.id === activeChatId ? 'text-fg-base bg-bg-subtle' : 'text-fg-muted hover:text-fg-base hover:bg-bg-subtle'
+                        )}
+                        style={{ padding: '4px 8px', maxWidth: '200px' }}
+                        title={thread.title || 'Untitled'}
+                      >
+                        {(thread.title || 'Untitled').length > 25 ? (thread.title || 'Untitled').substring(0, 25) + '...' : (thread.title || 'Untitled')}
+                      </button>
+                    ))
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  <button onClick={createNewChat} className="h-7 w-7 flex items-center justify-center border border-border-base rounded-[6px] hover:bg-bg-subtle transition-colors flex-shrink-0" title="New chat">
+                    <Plus size={16} className="text-fg-base" />
+                  </button>
+                  <button onClick={() => setIsChatPanelOpen(false)} className="h-7 w-7 flex items-center justify-center border border-border-base rounded-[6px] hover:bg-bg-subtle transition-colors flex-shrink-0" title="Close chat">
+                    <SvgIcon src="/central_icons/Assistant - Filled.svg" alt="Close chat" width={16} height={16} className="text-fg-base" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Chat Content */}
+              <div className="flex-1 relative flex flex-col overflow-hidden">
+                <div className={`absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-bg-base via-bg-base/50 to-transparent pointer-events-none z-20 transition-opacity duration-300 ${isScrolled ? 'opacity-100' : 'opacity-0'}`} />
+                <div className={`absolute bottom-0 left-0 right-0 h-12 bg-gradient-to-t from-bg-base via-bg-base/50 to-transparent pointer-events-none z-20 transition-opacity duration-300 ${showBottomGradient ? 'opacity-100' : 'opacity-0'}`} />
+                <div ref={messagesContainerRef} className={`flex-1 overflow-y-auto overflow-x-hidden px-5 pt-8 pb-4 ${!isInChatMode ? 'flex items-center justify-center' : ''}`}>
+                  <div className="mx-auto w-full" style={{ maxWidth: '740px' }}>
+                    {!isInChatMode ? (
+                      <div className="flex flex-col items-center justify-center gap-6 py-3">
+                        <div className="w-full max-w-[624px] px-3 flex flex-col gap-0.5">
+                          <h1 className="text-[18px] font-medium leading-[24px] tracking-[-0.3px] text-fg-base">Ask Harvey</h1>
+                          <p className="text-sm leading-5 text-fg-subtle">Ask questions about your contracts, playbooks, or clause library.</p>
+                        </div>
+                        <div className="w-full max-w-[624px] flex flex-col">
+                          <div className="px-3 pb-3"><p className="text-xs leading-4 text-fg-muted">Get started\u2026</p></div>
+                          <div className="flex flex-col">
+                            {[
+                              { icon: '/central_icons/Review.svg', label: 'Review contracts needing attention', prompt: 'Review the contracts that need my attention and summarize the key issues' },
+                              { icon: '/central_icons/Review.svg', label: 'Analyze clause risk exposure', prompt: 'Analyze the risk exposure across my clause library and flag high-risk positions' },
+                              { icon: '/central_icons/Draft.svg', label: 'Draft playbook rule updates', prompt: 'Draft updated playbook rules based on recent regulatory changes' },
+                              { icon: '/central_icons/Review.svg', label: 'Summarize pipeline status', prompt: 'Summarize the current contract pipeline status and highlight escalations' },
+                            ].map((action, i) => (
+                              <React.Fragment key={action.label}>
+                                <button onClick={() => sendMessage(action.prompt)} disabled={isLoading} className="flex items-center gap-1.5 px-3 py-2 rounded-md hover:bg-bg-subtle transition-colors disabled:opacity-50 disabled:cursor-not-allowed text-left">
+                                  <SvgIcon src={action.icon} alt="" width={16} height={16} className="text-fg-subtle flex-shrink-0" />
+                                  <span className="text-sm leading-5 text-fg-subtle">{action.label}</span>
+                                </button>
+                                {i < 3 && <div className="h-px bg-border-base mx-3" />}
+                              </React.Fragment>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      messages.map((message, index) => (
+                        <div key={index} className={index !== messages.length - 1 ? 'mb-6' : ''}>
+                          {message.role === 'user' && (
+                            <div className="flex flex-col gap-2 items-end pl-[68px]">
+                              <div className="bg-bg-subtle px-4 py-3 rounded-[12px]">
+                                <div className="text-sm text-fg-base leading-5">{message.content}</div>
+                              </div>
+                              <div className="flex items-center justify-end">
+                                <button className="text-xs font-medium text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded px-2 py-1 flex items-center gap-1.5"><Copy className="w-3 h-3" />Copy</button>
+                                <button className="text-xs font-medium text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded px-2 py-1 flex items-center gap-1.5"><ListPlus className="w-3 h-3" />Save prompt</button>
+                                <button className="text-xs font-medium text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded px-2 py-1 flex items-center gap-1.5"><SquarePen className="w-3 h-3" />Edit query</button>
+                              </div>
+                            </div>
+                          )}
+                          {message.role === 'assistant' && (
+                            <div className="flex-1 min-w-0">
+                              {message.showThinking !== false && (
+                                <>
+                                  {message.isLoading && message.thinkingContent && message.loadingState ? (
+                                    <ThinkingState variant="analysis" title="Thinking..." durationSeconds={undefined} summary={message.loadingState.showSummary ? message.thinkingContent.summary : undefined} bullets={message.thinkingContent.bullets?.slice(0, message.loadingState.visibleBullets)} isLoading={true} />
+                                  ) : message.thinkingContent ? (
+                                    <ThinkingState variant="analysis" title="Thought" durationSeconds={3} summary={message.thinkingContent.summary} bullets={message.thinkingContent.bullets} defaultOpen={false} />
+                                  ) : null}
+                                </>
+                              )}
+                              {!message.isLoading && message.content && (
+                                <AnimatePresence>
+                                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: 'easeOut' }}>
+                                    <div className="text-sm text-fg-base leading-relaxed pl-2 whitespace-pre-wrap">{message.content}</div>
+                                    <div className="flex items-center justify-between mt-3">
+                                      <div className="flex items-center">
+                                        <button className="text-xs text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm px-2 py-1 flex items-center gap-1.5"><Copy className="w-3 h-3" />Copy</button>
+                                        <button className="text-xs text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm px-2 py-1 flex items-center gap-1.5"><Download className="w-3 h-3" />Export</button>
+                                        <button className="text-xs text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm px-2 py-1 flex items-center gap-1.5"><RotateCcw className="w-3 h-3" />Rewrite</button>
+                                      </div>
+                                      <div className="flex items-center gap-1">
+                                        <button className="text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm p-1.5"><ThumbsUp className="w-3 h-3" /></button>
+                                        <button className="text-fg-subtle hover:text-fg-base hover:bg-bg-subtle transition-colors rounded-sm p-1.5"><ThumbsDown className="w-3 h-3" /></button>
+                                      </div>
+                                    </div>
+                                  </motion.div>
+                                </AnimatePresence>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Chat Input */}
+              <div className="px-5 pb-5 relative z-20 bg-bg-base">
+                <div className="mx-auto" style={{ maxWidth: '732px' }}>
+                  <div
+                    className="bg-[#f6f5f4] dark:bg-[#2a2a2a] border border-[#f1efec] dark:border-[#3d3d3d] rounded-[12px] flex flex-col transition-all duration-200 focus-within:border-border-strong"
+                    style={{ boxShadow: '0px 18px 47px 0px rgba(0,0,0,0.03), 0px 7.5px 19px 0px rgba(0,0,0,0.02), 0px 4px 10.5px 0px rgba(0,0,0,0.02)' }}
+                  >
+                    <div className="p-[10px] flex flex-col gap-[10px]">
+                      <div className="inline-flex items-center gap-[4px] px-[4px] py-[2px] bg-white dark:bg-[#1a1a1a] border border-[#f1efec] dark:border-[#3d3d3d] rounded-[4px] w-fit">
+                        <img src="/folderIcon.svg" alt="Contracts" className="w-3 h-3" />
+                        <span className="text-[12px] font-medium text-[#848079] dark:text-[#a8a5a0] leading-[16px]">Contracts</span>
+                      </div>
+                      <div className="px-[4px]">
+                        <div className="relative">
+                          <textarea
+                            ref={textareaRef}
+                            value={chatInputValue}
+                            onChange={(e) => { setChatInputValue(e.target.value); e.target.style.height = '20px'; e.target.style.height = Math.max(20, e.target.scrollHeight) + 'px' }}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !isLoading) { e.preventDefault(); sendMessage() } }}
+                            onFocus={() => setIsChatInputFocused(true)}
+                            onBlur={() => setIsChatInputFocused(false)}
+                            disabled={isLoading}
+                            className="w-full bg-transparent focus:outline-none text-fg-base placeholder-[#9e9b95] resize-none overflow-hidden disabled:opacity-50"
+                            style={{ fontSize: '14px', lineHeight: '20px', height: '20px', minHeight: '20px', maxHeight: '300px' }}
+                          />
+                          {!chatInputValue && !isChatInputFocused && (
+                            <div className="absolute inset-0 pointer-events-none text-[#9e9b95] dark:text-[#6b6b6b] flex items-start" style={{ fontSize: '14px', lineHeight: '20px' }}>
+                              <TextLoop interval={3000}>
+                                <span>Review contracts needing attention\u2026</span>
+                                <span>Analyze clause risk exposure\u2026</span>
+                                <span>Draft playbook rule updates\u2026</span>
+                                <span>Summarize pipeline status\u2026</span>
+                              </TextLoop>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex items-end justify-between pl-[10px] pr-[10px] pb-[10px]">
+                      <div className="flex items-center">
+                        <button className="h-[28px] px-[6px] flex items-center justify-center rounded-[6px] hover:bg-[#e4e1dd] dark:hover:bg-[#3d3d3d] transition-colors"><Paperclip size={16} className="text-fg-base" /></button>
+                        <button className="h-[28px] px-[6px] flex items-center justify-center rounded-[6px] hover:bg-[#e4e1dd] dark:hover:bg-[#3d3d3d] transition-colors"><Scale size={16} className="text-fg-base" /></button>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {isLoading ? (
+                          <button disabled className="h-[28px] px-[8px] flex items-center justify-center bg-button-inverted text-fg-on-color rounded-[6px] cursor-not-allowed"><Spinner size="sm" /></button>
+                        ) : chatInputValue.trim() ? (
+                          <button onClick={() => sendMessage()} className="h-[28px] px-[8px] flex items-center justify-center bg-button-inverted text-fg-on-color rounded-[6px] hover:bg-button-inverted-hover transition-all"><CornerDownLeft size={16} /></button>
+                        ) : (
+                          <button className="h-[28px] px-[8px] flex items-center justify-center bg-[#e4e1dd] dark:bg-[#3d3d3d] rounded-[6px] hover:bg-[#d9d6d1] dark:hover:bg-[#4a4a4a] transition-all"><Mic className="w-4 h-4 text-fg-base" /></button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
     </div>
   )
 }

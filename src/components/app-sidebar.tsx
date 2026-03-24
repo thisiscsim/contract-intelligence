@@ -20,7 +20,6 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar"
 import { 
-  Briefcase,
   ChevronRight,
   Settings,
   Moon,
@@ -108,27 +107,27 @@ export function AppSidebar() {
   const router = useRouter()
   const pathname = usePathname()
   const [isAvatarHovered, setIsAvatarHovered] = useState(false)
-  const [isVaultOpen, setIsVaultOpen] = useState<boolean | null>(null)
-  const [isContractsOpen, setIsContractsOpen] = useState<boolean | null>(null)
-
-  // Load collapsible states from localStorage on mount
-  useEffect(() => {
-    const saved = localStorage.getItem('sidebar-vault-open')
-    setIsVaultOpen(saved !== null ? saved === 'true' : true)
-    const savedContracts = localStorage.getItem('sidebar-contracts-open')
-    setIsContractsOpen(savedContracts !== null ? savedContracts === 'true' : true)
-  }, [])
-
-  useEffect(() => {
-    if (isVaultOpen !== null) {
-      localStorage.setItem('sidebar-vault-open', String(isVaultOpen))
+  const [isVaultOpen, setIsVaultOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebar-vault-open')
+      return saved !== null ? saved === 'true' : true
     }
+    return true
+  })
+  const [isContractsOpen, setIsContractsOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('sidebar-contracts-open')
+      return saved !== null ? saved === 'true' : true
+    }
+    return true
+  })
+
+  useEffect(() => {
+    localStorage.setItem('sidebar-vault-open', String(isVaultOpen))
   }, [isVaultOpen])
 
   useEffect(() => {
-    if (isContractsOpen !== null) {
-      localStorage.setItem('sidebar-contracts-open', String(isContractsOpen))
-    }
+    localStorage.setItem('sidebar-contracts-open', String(isContractsOpen))
   }, [isContractsOpen])
   
   // Determine the selected item based on current path
@@ -136,7 +135,7 @@ export function AppSidebar() {
     if (pathname === "/vault" || pathname === "/stubhub-ipo-filing" || pathname === "/reevo-ai-series-b" || pathname === "/regulatory-compliance-audit" || pathname.startsWith("/vault/")) {
       return "Vault"
     }
-    if (pathname.startsWith("/contract-intelligence") || pathname.startsWith("/meta-contract-intelligence") || pathname.startsWith("/deflection-workflow") || pathname.startsWith("/panel-management")) {
+    if (pathname.startsWith("/contract-intelligence") || pathname.startsWith("/meta-contract-intelligence") || pathname.startsWith("/deflection-workflow") || pathname.startsWith("/panel-management") || pathname.startsWith("/command-center")) {
       return "Contracts"
     }
     
@@ -306,7 +305,7 @@ export function AppSidebar() {
               
               {/* Vault with collapsible sub-items */}
               <Collapsible
-                open={!!isVaultOpen && state === "expanded"}
+                open={isVaultOpen && state === "expanded"}
                 onOpenChange={setIsVaultOpen}
                 className="group/collapsible"
               >
@@ -384,48 +383,51 @@ export function AppSidebar() {
 
               {/* Contracts with collapsible sub-items */}
               <Collapsible
-                open={!!isContractsOpen && state === "expanded"}
+                open={isContractsOpen && state === "expanded"}
                 onOpenChange={setIsContractsOpen}
                 className="group/contracts"
               >
                 {(() => {
-                  const isOnContractsPage = pathname.startsWith("/contract-intelligence") || pathname.startsWith("/meta-contract-intelligence") || pathname.startsWith("/deflection-workflow") || pathname.startsWith("/panel-management")
+                  const isOnContractsPage = pathname.startsWith("/contract-intelligence") || pathname.startsWith("/meta-contract-intelligence") || pathname.startsWith("/deflection-workflow") || pathname.startsWith("/panel-management") || pathname.startsWith("/command-center")
+                  const isOnDashboard = pathname.startsWith("/meta-contract-intelligence")
                   const isSubmenuVisible = isContractsOpen && state === "expanded"
-                  const isContractsItemActive = isOnContractsPage && !isSubmenuVisible
+                  const isContractsItemActive = isOnContractsPage && (!isSubmenuVisible || isOnDashboard)
 
                   return (
                     <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton
-                          tooltip={state === "collapsed" ? "Contracts" : undefined}
-                          onClick={() => {
-                            if (state === "collapsed") {
-                              handleNavigation("/contract-intelligence/overview")
-                            }
-                          }}
-                          className={cn(
-                            "w-full justify-start gap-[6px] text-sm rounded-md transition-colors",
-                            state === "expanded" ? "px-2 h-[32px]" : "p-0 w-[32px] h-[32px] min-w-[32px] min-h-[32px] flex items-center justify-center",
-                            isContractsItemActive ? "bg-bg-subtle-pressed hover:bg-bg-subtle-pressed" : "hover:bg-bg-subtle-hover"
-                          )}
-                        >
-                          <div className="w-5 h-5 flex items-center justify-center shrink-0">
-                            <Briefcase
-                              className={cn("w-[18px] h-[18px]", isContractsItemActive ? "text-fg-base" : "text-fg-subtle")}
-                            />
-                          </div>
-                          {state === "expanded" && (
-                            <>
-                              <span className={cn("flex-1", isContractsItemActive ? "text-fg-base" : "text-fg-subtle")}>Contracts</span>
-                              <ChevronRight className="w-4 h-4 text-fg-muted transition-transform duration-200 group-data-[state=open]/contracts:rotate-90" />
-                            </>
-                          )}
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
+                      <SidebarMenuButton
+                        tooltip={state === "collapsed" ? "Contracts" : undefined}
+                        onClick={() => handleNavigation("/meta-contract-intelligence/trends")}
+                        className={cn(
+                          "w-full justify-start gap-[6px] text-sm rounded-md transition-colors",
+                          state === "expanded" ? "px-2 h-[32px]" : "p-0 w-[32px] h-[32px] min-w-[32px] min-h-[32px] flex items-center justify-center",
+                          isContractsItemActive ? "bg-bg-subtle-pressed hover:bg-bg-subtle-pressed" : "hover:bg-bg-subtle-hover"
+                        )}
+                      >
+                        <div className="w-5 h-5 flex items-center justify-center shrink-0">
+                          <SvgIcon
+                            src={isOnContractsPage ? "/central_icons/Contract - Filled.svg" : "/central_icons/Contract.svg"}
+                            alt="Contracts"
+                            width={18}
+                            height={18}
+                            className={cn(isOnContractsPage ? "text-fg-base" : "text-fg-subtle")}
+                          />
+                        </div>
+                        {state === "expanded" && (
+                          <>
+                            <span className={cn("flex-1", isContractsItemActive ? "text-fg-base" : "text-fg-subtle")}>Contracts</span>
+                            <CollapsibleTrigger asChild onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                              <button type="button" className="flex items-center justify-center w-5 h-5 rounded hover:bg-bg-base-hover">
+                                <ChevronRight className="w-4 h-4 text-fg-muted transition-transform duration-200 group-data-[state=open]/contracts:rotate-90" />
+                              </button>
+                            </CollapsibleTrigger>
+                          </>
+                        )}
+                      </SidebarMenuButton>
                       <CollapsibleContent>
                         <SidebarMenuSub>
                           {[
-                            { name: "Command Center", href: "/meta-contract-intelligence/trends" },
+                            { name: "Command Center", href: "/command-center" },
                             { name: "Pipeline", href: "/contract-intelligence/overview" },
                             { name: "Playbooks", href: "/contract-intelligence/playbooks" },
                             { name: "Clause Library", href: "/contract-intelligence/clauses" },
